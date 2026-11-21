@@ -1,0 +1,999 @@
+{
+  "version": "2.0.0",
+  "updatedAt": "2026-09-29T13:18:59.119Z",
+  "totalProducts": 16,
+  "products": [
+    {
+      "id": "earl-grey",
+      "name": "Earl Grey",
+      "category": "chá preto",
+      "caffeine": "com cafeína",
+      "profileHeadline": "Encorpado, cítrico e atemporal",
+      "sensoryProfile": {
+        "intensity": 4,
+        "acidity": 3,
+        "sweetness": 1,
+        "freshness": 3,
+        "body": 4
+      },
+      "keyIngredient": "Óleo natural de bergamota",
+      "ingredients": [
+        "Chá preto do Ceilão",
+        "Óleo natural de bergamota"
+      ],
+      "temperature": [
+        "quente",
+        "gelado"
+      ],
+      "occasions": [
+        "café da manhã",
+        "room service",
+        "evento",
+        "qualquer hora"
+      ],
+      "suitableAudience": [
+        "público sofisticado",
+        "executivo",
+        "público geral",
+        "turistas",
+        "pessoas que já gostam de chá"
+      ],
+      "foodPairings": [
+        "Pães artesanais",
+        "Torradas com manteiga",
+        "Queijos amarelos e curados",
+        "Confeitaria clássica inglesa",
+        "Ovos mexidos",
+        "Café da manhã continental"
+      ],
+      "serviceFormats": [
+        "granel",
+        "sachê piramidal",
+        "vapt vupt",
+        "amostra olfativa"
+      ],
+      "brewGuide": {
+        "tempC": "95°C",
+        "infusionTime": "3 a 4 min",
+        "servingNote": "Excelente servido puro pela manhã ou com uma lâmina de limão siciliano ou toque de leite."
+      },
+      "factHighlights": [
+        "Chá preto de alta altitude do Ceilão",
+        "Aromatizado com óleo essencial prensado de bergamota",
+        "Teor de cafeína natural que confere foco matinal"
+      ],
+      "sommelierTastingNote": "Nossa aposta para o início do dia. Sua base encorpada e notas cítricas cortam a gordura de manteigas e queijos, trazendo clareza ao paladar.",
+      "isCoreBlends": true,
+      "imageUrl": "/assets/creamearlgrey-yC8DmIAI.jpg",
+      "image": "/assets/creamearlgrey-yC8DmIAI.jpg"
+    },
+    {
+      "id": "cherry-rose",
+      "name": "Cherry Rose",
+      "category": "chá verde",
+      "caffeine": "cafeína moderada",
+      "profileHeadline": "Suave, floral e levemente adocicado",
+      "sensoryProfile": {
+        "intensity": 2,
+        "acidity": 2,
+        "sweetness": 3,
+        "freshness": 4,
+        "body": 2
+      },
+      "keyIngredient": "Pétalas de rosa e toque de cereja",
+      "ingredients": [
+        "Chá verde selecionado",
+        "Pétalas de rosa",
+        "Aroma natural de cereja"
+      ],
+      "temperature": [
+        "quente",
+        "gelado"
+      ],
+      "occasions": [
+        "brunch",
+        "chá da tarde",
+        "evento",
+        "presente",
+        "qualquer hora"
+      ],
+      "suitableAudience": [
+        "jovens",
+        "público sofisticado",
+        "pessoas que não conhecem chá",
+        "público geral",
+        "famílias"
+      ],
+      "foodPairings": [
+        "Croissants folhados",
+        "Frutas vermelhas e frescas",
+        "Quiches e tortas leves",
+        "Salmão defumado",
+        "Queijos brancos e brie",
+        "Brunch contemporâneo"
+      ],
+      "serviceFormats": [
+        "granel",
+        "sachê piramidal",
+        "vapt vupt",
+        "copo vidro duplo",
+        "amostra olfativa"
+      ],
+      "brewGuide": {
+        "tempC": "75°C a 80°C",
+        "infusionTime": "2 a 3 min",
+        "servingNote": "Temperatura controlada da água para preservar a doçura e não amargar as folhas jovens de chá verde."
+      },
+      "factHighlights": [
+        "Excelente porta de entrada para o universo do chá verde",
+        "Contém pétalas inteiras de rosa",
+        "Cafeína suave e equilibrada com L-teanina"
+      ],
+      "sommelierTastingNote": "Ele tende a funcionar excepcionalmente bem em brunches e encontros leves, pois o perfume das rosas e o toque frutado criam conexão imediata sem nenhuma adstringência agressiva.",
+      "isCoreBlends": true,
+      "imageUrl": "/assets/cha-verde-cherry-rose-talcha-D4nTpJYj.jpg",
+      "image": "/assets/cha-verde-cherry-rose-talcha-D4nTpJYj.jpg"
+    },
+    {
+      "id": "doce-amendoa",
+      "name": "Doce Amêndoa",
+      "category": "infusão",
+      "caffeine": "sem cafeína",
+      "profileHeadline": "Aconchegante, com notas de sobremesa",
+      "sensoryProfile": {
+        "intensity": 3,
+        "acidity": 1,
+        "sweetness": 5,
+        "freshness": 1,
+        "body": 3
+      },
+      "keyIngredient": "Maçã, canela e amêndoas",
+      "ingredients": [
+        "Pedaços de maçã",
+        "Canela em casca",
+        "Amêndoas laminadas",
+        "Beterraba"
+      ],
+      "temperature": [
+        "quente"
+      ],
+      "occasions": [
+        "chá da tarde",
+        "pós-refeição",
+        "jantar",
+        "presente",
+        "qualquer hora"
+      ],
+      "suitableAudience": [
+        "famílias",
+        "público sofisticado",
+        "pessoas que não conhecem chá",
+        "público geral"
+      ],
+      "foodPairings": [
+        "Bolos caseiros e tortas",
+        "Torta de maçã (Apple pie)",
+        "Biscoitos amanteigados",
+        "Confeitaria fina e doces folhados",
+        "Chocolates e sobremesas cremosas"
+      ],
+      "serviceFormats": [
+        "granel",
+        "sachê piramidal",
+        "vapt vupt",
+        "copo vidro duplo"
+      ],
+      "brewGuide": {
+        "tempC": "100°C",
+        "infusionTime": "5 a 8 min",
+        "servingNote": "Infusão generosa em água fervente para extrair os açúcares naturais da maçã e o calor da canela."
+      },
+      "factHighlights": [
+        "100% livre de cafeína por ser uma infusão de frutas e especiarias",
+        "Pedacinhos visíveis de amêndoas e canela",
+        "Aroma envolvente de forno e confeitaria"
+      ],
+      "sommelierTastingNote": "Nossa recomendação de conforto térmico e sensorial. Harmoniza por semelhança com a doçura da confeitaria, criando uma sensação acolhedora de sobremesa líquida.",
+      "isCoreBlends": true,
+      "imageUrl": "/assets/doceamendoa-BlMYaqBT.jpg",
+      "image": "/assets/doceamendoa-BlMYaqBT.jpg"
+    },
+    {
+      "id": "gengibre-fresh",
+      "name": "Gengibre Fresh",
+      "category": "infusão",
+      "caffeine": "sem cafeína",
+      "profileHeadline": "Fresco, herbal com calor sutil",
+      "sensoryProfile": {
+        "intensity": 3,
+        "acidity": 3,
+        "sweetness": 1,
+        "freshness": 5,
+        "body": 2
+      },
+      "keyIngredient": "Capim-limão, hortelã, gengibre, limão e pimenta-do-reino",
+      "ingredients": [
+        "Capim-limão",
+        "Hortelã",
+        "Pedaços de gengibre",
+        "Cascas de limão",
+        "Pimenta-do-reino"
+      ],
+      "temperature": [
+        "quente",
+        "gelado"
+      ],
+      "occasions": [
+        "almoço",
+        "qualquer hora",
+        "pós-refeição",
+        "evento",
+        "room service"
+      ],
+      "suitableAudience": [
+        "público wellness",
+        "executivo",
+        "jovens",
+        "público geral",
+        "pessoas que já gostam de chá"
+      ],
+      "foodPairings": [
+        "Pratos leves e saladas frescas",
+        "Culinária asiática e sushi",
+        "Grelhados e ceviches",
+        "Pães de fermentação natural",
+        "Snacks saudáveis"
+      ],
+      "serviceFormats": [
+        "granel",
+        "sachê piramidal",
+        "vapt vupt",
+        "copo vidro duplo"
+      ],
+      "brewGuide": {
+        "tempC": "100°C",
+        "infusionTime": "5 a 7 min",
+        "servingNote": "Versatilidade total: reconfortante quente nos dias frios, surpreendentemente revigorante quando servido com gelo."
+      },
+      "factHighlights": [
+        "Totalmente sem cafeína",
+        "Combina ervas digestivas com notas cítricas e especiarias vivas",
+        "Sensação térmica balanceada entre frescor de hortelã e calor do gengibre"
+      ],
+      "sommelierTastingNote": "Ele tende a limpar o paladar com precisão. Indicado tanto para acompanhar pratos de perfil herbal ou asiático quanto para momentos de renovação de energia sem estimulantes artificiais.",
+      "isCoreBlends": true,
+      "imageUrl": "/assets/infusaofrescor-DEKs3cbB.jpg",
+      "image": "/assets/infusaofrescor-DEKs3cbB.jpg"
+    },
+    {
+      "id": "rooibos-equilibrio",
+      "name": "Rooibos Equilíbrio",
+      "category": "rooibos",
+      "caffeine": "sem cafeína",
+      "profileHeadline": "Refrescante e digestivo",
+      "sensoryProfile": {
+        "intensity": 2,
+        "acidity": 1,
+        "sweetness": 2,
+        "freshness": 4,
+        "body": 3
+      },
+      "keyIngredient": "Rooibos da África do Sul, erva-doce, menta e calêndula",
+      "ingredients": [
+        "Rooibos vermelho da África do Sul",
+        "Erva-doce",
+        "Folhas de menta",
+        "Pétalas de calêndula"
+      ],
+      "temperature": [
+        "quente",
+        "gelado"
+      ],
+      "occasions": [
+        "pós-refeição",
+        "jantar",
+        "almoço",
+        "room service",
+        "qualquer hora"
+      ],
+      "suitableAudience": [
+        "público wellness",
+        "público sofisticado",
+        "famílias",
+        "executivo",
+        "pessoas que não conhecem chá"
+      ],
+      "foodPairings": [
+        "Finalização de refeições encorpadas (massas, risotos, carnes)",
+        "Sobremesas leves e frutas",
+        "Queijos de média cura",
+        "Menu degustação (como digestivo autoral)"
+      ],
+      "serviceFormats": [
+        "granel",
+        "sachê piramidal",
+        "vapt vupt",
+        "copo vidro duplo",
+        "amostra olfativa"
+      ],
+      "brewGuide": {
+        "tempC": "100°C",
+        "infusionTime": "5 min",
+        "servingNote": "Rooibos naturalmente macio, livre de taninos adstringentes, permitindo infusão prolongada sem amargor."
+      },
+      "factHighlights": [
+        "Planta nativa da África do Sul (Aspalathus linearis), naturalmente desprovida de cafeína",
+        "Baixo teor de taninos: não amarga mesmo com infusão mais longa",
+        "Formulado com erva-doce e menta para uma sensação digestiva acolhedora"
+      ],
+      "sommelierTastingNote": "Nossa indicação primorosa para o pós-refeição. Enquanto muitos associam chá digestivo a sabores amargos de farmácia, o Rooibos Equilíbrio entrega uma experiência aveludada, adocicada e mentolada digna da alta gastronomia.",
+      "isCoreBlends": true,
+      "imageUrl": "/assets/infusao-calmaria-talcha-DcWxjR94.jpg",
+      "image": "/assets/infusao-calmaria-talcha-DcWxjR94.jpg"
+    },
+    {
+      "id": "vermelho-intenso",
+      "name": "Vermelho Intenso",
+      "category": "infusão",
+      "caffeine": "sem cafeína",
+      "profileHeadline": "Intenso em cor e aroma, levemente ácido",
+      "sensoryProfile": {
+        "intensity": 4,
+        "acidity": 4,
+        "sweetness": 2,
+        "freshness": 4,
+        "body": 3
+      },
+      "keyIngredient": "Hibisco e frutas vermelhas liofilizadas",
+      "ingredients": [
+        "Flores de hibisco",
+        "Frutas vermelhas liofilizadas (morango, amora, framboesa)",
+        "Maçã"
+      ],
+      "temperature": [
+        "gelado",
+        "quente",
+        "em drink"
+      ],
+      "occasions": [
+        "brunch",
+        "drink",
+        "evento",
+        "qualquer hora",
+        "chá da tarde"
+      ],
+      "suitableAudience": [
+        "jovens",
+        "público sofisticado",
+        "pessoas que não conhecem chá",
+        "turistas",
+        "público geral"
+      ],
+      "foodPairings": [
+        "Frutas e saladas de frutas",
+        "Sobremesas de chocolate meio amargo",
+        "Cheesecakes e tortas doces",
+        "Pratos leves de verão",
+        "Canapés e finger foods em eventos"
+      ],
+      "serviceFormats": [
+        "granel",
+        "sachê piramidal",
+        "copo vidro duplo",
+        "suqueira",
+        "lata rtd"
+      ],
+      "brewGuide": {
+        "tempC": "100°C",
+        "infusionTime": "5 a 8 min",
+        "servingNote": "Brilha espetacularmente gelado! Infusione concentrado e despeje sobre pedras de gelo ou sirva em suqueira de cristal."
+      },
+      "signatureDrink": {
+        "name": "Sunset Boulevard / Arpoador Mocktail",
+        "type": "sem álcool",
+        "description": "Infusão concentrada de Vermelho Intenso batida com morangos frescos, gelo e finalizada com água com gás ou tônica."
+      },
+      "factHighlights": [
+        "Cor rubi profunda natural obtida pela extração do hibisco e frutas vermelhas",
+        "Zero cafeína, podendo ser consumido à vontade em qualquer horário",
+        "Base perfeita para coquetelaria sem álcool e drinks refrescantes com espumante ou gin"
+      ],
+      "sommelierTastingNote": "Nossa aposta para impacto visual e sensorial imediato. O equilíbrio entre a acidez viva do hibisco e as notas aromáticas de frutas vermelhas desperta o paladar e funciona como uma assinatura inesquecível em eventos e brunches.",
+      "isCoreBlends": true,
+      "imageUrl": "/assets/vermelho-intenso-talcha-BCZZNWYz.jpg",
+      "image": "/assets/vermelho-intenso-talcha-BCZZNWYz.jpg"
+    },
+    {
+      "id": "rtd-vermelho-intenso",
+      "name": "Vermelho Intenso Gaseificado",
+      "category": "pronto para beber",
+      "caffeine": "sem cafeína",
+      "profileHeadline": "Chá gaseificado em lata 269ml, baixa caloria",
+      "sensoryProfile": {
+        "intensity": 4,
+        "acidity": 4,
+        "sweetness": 2,
+        "freshness": 5,
+        "body": 2
+      },
+      "keyIngredient": "Hibisco e frutas vermelhas",
+      "ingredients": [
+        "Chá infusionado com hibisco e frutas vermelhas",
+        "Água gaseificada",
+        "Baixa caloria"
+      ],
+      "temperature": [
+        "gelado"
+      ],
+      "occasions": [
+        "drink",
+        "evento",
+        "brunch",
+        "room service",
+        "qualquer hora"
+      ],
+      "suitableAudience": [
+        "jovens",
+        "público wellness",
+        "executivo",
+        "turistas"
+      ],
+      "foodPairings": [
+        "Snacks rápidos",
+        "Sanduíches gourmet",
+        "Finger foods",
+        "Saladas"
+      ],
+      "serviceFormats": [
+        "lata rtd"
+      ],
+      "brewGuide": {
+        "tempC": "Servir entre 3°C e 6°C",
+        "infusionTime": "Pronto para beber",
+        "servingNote": "Servir bem gelado diretamente na lata ou em copo com pedras de gelo e fruta vermelha."
+      },
+      "factHighlights": [
+        "Infusionado com ingredientes reais em água quente (não é extrato ou pó)",
+        "Lata sleek de 269ml com 1 ano de validade",
+        "Fórmula limpa e de baixa caloria"
+      ],
+      "sommelierTastingNote": "A conveniência da lata com a alma do chá especial infusionado na hora. Praticidade imediata para empórios, cafeterias e eventos ao ar livre.",
+      "isCoreBlends": false,
+      "imageUrl": "/assets/vermelho-intenso-talcha-BCZZNWYz.jpg",
+      "image": "/assets/vermelho-intenso-talcha-BCZZNWYz.jpg"
+    },
+    {
+      "id": "rtd-rose",
+      "name": "Rosé Gaseificado",
+      "category": "pronto para beber",
+      "caffeine": "sem cafeína",
+      "profileHeadline": "Laranja, tangerina e capim-limão gaseificado",
+      "sensoryProfile": {
+        "intensity": 3,
+        "acidity": 3,
+        "sweetness": 3,
+        "freshness": 5,
+        "body": 2
+      },
+      "keyIngredient": "Laranja, tangerina e capim-limão",
+      "ingredients": [
+        "Infusão natural de cítricos e capim-limão",
+        "Água gaseificada"
+      ],
+      "temperature": [
+        "gelado"
+      ],
+      "occasions": [
+        "brunch",
+        "evento",
+        "drink",
+        "qualquer hora"
+      ],
+      "suitableAudience": [
+        "público sofisticado",
+        "jovens",
+        "público geral"
+      ],
+      "foodPairings": [
+        "Canapés leves",
+        "Tapas",
+        "Frutos do mar",
+        "Petiscos de verão"
+      ],
+      "serviceFormats": [
+        "lata rtd"
+      ],
+      "brewGuide": {
+        "tempC": "Servir gelado (4°C)",
+        "infusionTime": "Pronto para beber",
+        "servingNote": "Sirva em taça com uma fatia de laranja desidratada."
+      },
+      "factHighlights": [
+        "Infusão real gaseificada",
+        "Lata 269ml baixa caloria",
+        "Notas cítricas elegantes de aperitivo"
+      ],
+      "sommelierTastingNote": "Traz a sofisticação de um espumante sem álcool, perfeito para welcome drinks e hospitalidade de alto padrão.",
+      "isCoreBlends": false,
+      "imageUrl": "/assets/lata-infusao_1-CXX8kq2Y.png",
+      "image": "/assets/lata-infusao_1-CXX8kq2Y.png"
+    },
+    {
+      "id": "rtd-cha-verde-detox",
+      "name": "Chá Verde Detox Gaseificado",
+      "category": "pronto para beber",
+      "caffeine": "cafeína moderada",
+      "profileHeadline": "Chá verde com gengibre e limão em lata gaseificada",
+      "sensoryProfile": {
+        "intensity": 3,
+        "acidity": 3,
+        "sweetness": 1,
+        "freshness": 5,
+        "body": 2
+      },
+      "keyIngredient": "Chá verde, gengibre e limão",
+      "ingredients": [
+        "Chá verde de folha inteira",
+        "Gengibre fresco",
+        "Limão",
+        "Gás suave"
+      ],
+      "temperature": [
+        "gelado"
+      ],
+      "occasions": [
+        "almoço",
+        "qualquer hora",
+        "room service"
+      ],
+      "suitableAudience": [
+        "público wellness",
+        "executivo",
+        "jovens"
+      ],
+      "foodPairings": [
+        "Saladas",
+        "Pokes",
+        "Sanduíches naturais",
+        "Bowls"
+      ],
+      "serviceFormats": [
+        "lata rtd"
+      ],
+      "brewGuide": {
+        "tempC": "Gelado (3°C a 5°C)",
+        "infusionTime": "Pronto para beber",
+        "servingNote": "Excelente para acompanhar almoços rápidos e pausas revigorantes durante o dia."
+      },
+      "factHighlights": [
+        "Chá verde real com antioxidantes preservados",
+        "Toque picante do gengibre com efervescência limpa",
+        "269ml com 1 ano de validade"
+      ],
+      "sommelierTastingNote": "Proposta refrescante para o público contemporâneo que busca bebidas funcionais e sem excesso de açúcar.",
+      "isCoreBlends": false,
+      "imageUrl": "/assets/infusaofrescor-DEKs3cbB.jpg",
+      "image": "/assets/infusaofrescor-DEKs3cbB.jpg"
+    },
+    {
+      "id": "long-sono",
+      "name": "Ritual do Sono",
+      "category": "linha longevidade",
+      "caffeine": "sem cafeína",
+      "profileHeadline": "Desacelerar no fim do dia",
+      "sensoryProfile": {
+        "intensity": 2,
+        "acidity": 1,
+        "sweetness": 3,
+        "freshness": 3,
+        "body": 3
+      },
+      "keyIngredient": "Ervas calmantes e florais selecionados",
+      "ingredients": [
+        "Camomila",
+        "Melissa",
+        "Capim-limão",
+        "Lavanda"
+      ],
+      "temperature": [
+        "quente"
+      ],
+      "occasions": [
+        "jantar",
+        "room service",
+        "pós-refeição"
+      ],
+      "suitableAudience": [
+        "público wellness",
+        "turistas",
+        "famílias"
+      ],
+      "foodPairings": [
+        "Pequenos biscoitos",
+        "Consumo noturno isolado"
+      ],
+      "serviceFormats": [
+        "granel",
+        "sachê piramidal",
+        "vapt vupt"
+      ],
+      "brewGuide": {
+        "tempC": "100°C",
+        "infusionTime": "6 a 8 min",
+        "servingNote": "Ideal para turn-down service em hotéis."
+      },
+      "factHighlights": [
+        "Sem cafeína",
+        "Formulação nutricional para o relaxamento noturno"
+      ],
+      "sommelierTastingNote": "Nossa sugestão para hotelaria de luxo em serviço de quarto ou spa ao entardecer.",
+      "isCoreBlends": false,
+      "imageUrl": "/assets/infusao-calmaria-talcha-DcWxjR94.jpg",
+      "image": "/assets/infusao-calmaria-talcha-DcWxjR94.jpg"
+    },
+    {
+      "id": "long-relaxa",
+      "name": "Relaxa",
+      "category": "linha longevidade",
+      "caffeine": "sem cafeína",
+      "profileHeadline": "Pausa e equilíbrio consciente",
+      "sensoryProfile": {
+        "intensity": 2,
+        "acidity": 2,
+        "sweetness": 2,
+        "freshness": 4,
+        "body": 2
+      },
+      "keyIngredient": "Menta, erva-doce e flores",
+      "ingredients": [
+        "Menta doce",
+        "Erva-doce",
+        "Calêndula"
+      ],
+      "temperature": [
+        "quente",
+        "gelado"
+      ],
+      "occasions": [
+        "chá da tarde",
+        "pós-refeição",
+        "qualquer hora"
+      ],
+      "suitableAudience": [
+        "público wellness",
+        "executivo",
+        "público geral"
+      ],
+      "foodPairings": [
+        "Frutas secas",
+        "Bolo simples"
+      ],
+      "serviceFormats": [
+        "granel",
+        "sachê piramidal"
+      ],
+      "brewGuide": {
+        "tempC": "100°C",
+        "infusionTime": "5 min",
+        "servingNote": "Uma pausa aromática durante a jornada de trabalho."
+      },
+      "factHighlights": [
+        "Livre de cafeína",
+        "Embalagem caixa 45g a granel"
+      ],
+      "sommelierTastingNote": "Suavidade aromática que convida à respiração profunda.",
+      "isCoreBlends": false,
+      "imageUrl": "/assets/cha-verde-cherry-rose-talcha-D4nTpJYj.jpg",
+      "image": "/assets/cha-verde-cherry-rose-talcha-D4nTpJYj.jpg"
+    },
+    {
+      "id": "long-foco",
+      "name": "Foco",
+      "category": "linha longevidade",
+      "caffeine": "com cafeína",
+      "profileHeadline": "Clareza e concentração mental",
+      "sensoryProfile": {
+        "intensity": 3,
+        "acidity": 2,
+        "sweetness": 2,
+        "freshness": 4,
+        "body": 3
+      },
+      "keyIngredient": "Chá verde com alecrim e ginkgo",
+      "ingredients": [
+        "Chá verde",
+        "Alecrim",
+        "Ginkgo biloba",
+        "Casca de limão"
+      ],
+      "temperature": [
+        "quente",
+        "gelado"
+      ],
+      "occasions": [
+        "café da manhã",
+        "almoço",
+        "qualquer hora"
+      ],
+      "suitableAudience": [
+        "executivo",
+        "jovens",
+        "público wellness"
+      ],
+      "foodPairings": [
+        "Castanhas",
+        "Frutas desidratadas",
+        "Snacks de foco"
+      ],
+      "serviceFormats": [
+        "granel",
+        "sachê piramidal"
+      ],
+      "brewGuide": {
+        "tempC": "80°C",
+        "infusionTime": "3 min",
+        "servingNote": "Excelente para salas de reunião e coworking."
+      },
+      "factHighlights": [
+        "Com cafeína natural de liberação lenta e L-teanina"
+      ],
+      "sommelierTastingNote": "A alternativa de alta precisão ao excesso de café nas empresas.",
+      "isCoreBlends": false,
+      "imageUrl": "/assets/infusaofrescor-DEKs3cbB.jpg",
+      "image": "/assets/infusaofrescor-DEKs3cbB.jpg"
+    },
+    {
+      "id": "long-energia",
+      "name": "Energia",
+      "category": "linha longevidade",
+      "caffeine": "com cafeína",
+      "profileHeadline": "Disposição natural prolongada",
+      "sensoryProfile": {
+        "intensity": 4,
+        "acidity": 3,
+        "sweetness": 2,
+        "freshness": 3,
+        "body": 4
+      },
+      "keyIngredient": "Chá preto com especiarias e guaraná",
+      "ingredients": [
+        "Chá preto",
+        "Canela",
+        "Gengibre",
+        "Toque de guaraná"
+      ],
+      "temperature": [
+        "quente",
+        "gelado"
+      ],
+      "occasions": [
+        "café da manhã",
+        "brunch",
+        "qualquer hora"
+      ],
+      "suitableAudience": [
+        "público wellness",
+        "jovens",
+        "executivo"
+      ],
+      "foodPairings": [
+        "Granola com iogurte",
+        "Torradas integrais"
+      ],
+      "serviceFormats": [
+        "granel",
+        "sachê piramidal"
+      ],
+      "brewGuide": {
+        "tempC": "95°C",
+        "infusionTime": "4 min",
+        "servingNote": "Potência aromática revigorante."
+      },
+      "factHighlights": [
+        "Energia limpa sem o pico de ansiedade de bebidas artificiais"
+      ],
+      "sommelierTastingNote": "Ele tende a sustentar a disposição com elegância gastronômica.",
+      "isCoreBlends": false,
+      "imageUrl": "/assets/lata-talcha-cha-preto-fxDTyD3v.jpg",
+      "image": "/assets/lata-talcha-cha-preto-fxDTyD3v.jpg"
+    },
+    {
+      "id": "long-imunidade",
+      "name": "Imunidade",
+      "category": "linha longevidade",
+      "caffeine": "sem cafeína",
+      "profileHeadline": "Frutas vermelhas e equinácea",
+      "sensoryProfile": {
+        "intensity": 4,
+        "acidity": 4,
+        "sweetness": 2,
+        "freshness": 3,
+        "body": 3
+      },
+      "keyIngredient": "Frutas vermelhas e equinácea",
+      "ingredients": [
+        "Flores de hibisco",
+        "Sabugueiro",
+        "Equinácea",
+        "Frutas vermelhas"
+      ],
+      "temperature": [
+        "quente",
+        "gelado"
+      ],
+      "occasions": [
+        "qualquer hora",
+        "chá da tarde"
+      ],
+      "suitableAudience": [
+        "famílias",
+        "público wellness"
+      ],
+      "foodPairings": [
+        "Pães de sementes",
+        "Frutas"
+      ],
+      "serviceFormats": [
+        "granel",
+        "sachê piramidal"
+      ],
+      "brewGuide": {
+        "tempC": "100°C",
+        "infusionTime": "6 min",
+        "servingNote": "Cor vibrante e aconchego acolhedor."
+      },
+      "factHighlights": [
+        "100% sem cafeína, rico em compostos botânicos"
+      ],
+      "sommelierTastingNote": "Coloração viva e notas de compota de frutas silvestres.",
+      "isCoreBlends": false,
+      "imageUrl": "/assets/vermelho-intenso-talcha-BCZZNWYz.jpg",
+      "image": "/assets/vermelho-intenso-talcha-BCZZNWYz.jpg"
+    },
+    {
+      "id": "long-desinflama",
+      "name": "Desinflama",
+      "category": "linha longevidade",
+      "caffeine": "sem cafeína",
+      "profileHeadline": "Cúrcuma dourada e gengibre",
+      "sensoryProfile": {
+        "intensity": 3,
+        "acidity": 2,
+        "sweetness": 1,
+        "freshness": 4,
+        "body": 3
+      },
+      "keyIngredient": "Cúrcuma pura, gengibre e pimenta",
+      "ingredients": [
+        "Cúrcuma",
+        "Gengibre",
+        "Capim-santo",
+        "Pimenta-preta para absorção"
+      ],
+      "temperature": [
+        "quente"
+      ],
+      "occasions": [
+        "pós-refeição",
+        "qualquer hora"
+      ],
+      "suitableAudience": [
+        "público wellness",
+        "público sofisticado"
+      ],
+      "foodPairings": [
+        "Cozinha saudável contemporânea"
+      ],
+      "serviceFormats": [
+        "granel",
+        "sachê piramidal"
+      ],
+      "brewGuide": {
+        "tempC": "100°C",
+        "infusionTime": "7 min",
+        "servingNote": "Tonalidade dourada vibrante."
+      },
+      "factHighlights": [
+        "Combinação clássica de especiarias nobres"
+      ],
+      "sommelierTastingNote": "Paladar caloroso e reconfortante para o estômago.",
+      "isCoreBlends": false,
+      "imageUrl": "/assets/doceamendoa-BlMYaqBT.jpg",
+      "image": "/assets/doceamendoa-BlMYaqBT.jpg"
+    },
+    {
+      "id": "long-spice-detox",
+      "name": "Spice Detox",
+      "category": "linha longevidade",
+      "caffeine": "sem cafeína",
+      "profileHeadline": "Especiarias nobres e leveza",
+      "sensoryProfile": {
+        "intensity": 3,
+        "acidity": 2,
+        "sweetness": 2,
+        "freshness": 4,
+        "body": 3
+      },
+      "keyIngredient": "Cardamomo, erva-doce e cravo",
+      "ingredients": [
+        "Cardamomo",
+        "Erva-doce",
+        "Canela",
+        "Cravo"
+      ],
+      "temperature": [
+        "quente",
+        "gelado"
+      ],
+      "occasions": [
+        "pós-refeição",
+        "chá da tarde"
+      ],
+      "suitableAudience": [
+        "público wellness",
+        "pessoas que já gostam de chá"
+      ],
+      "foodPairings": [
+        "Culinária oriental e sobremesas especiadas"
+      ],
+      "serviceFormats": [
+        "granel",
+        "sachê piramidal"
+      ],
+      "brewGuide": {
+        "tempC": "100°C",
+        "infusionTime": "5 min",
+        "servingNote": "Aroma exótico que perfuma o ambiente."
+      },
+      "factHighlights": [
+        "Sem cafeína, caixa 45g a granel"
+      ],
+      "sommelierTastingNote": "Complexidade de especiarias orientais com finalização fresca.",
+      "isCoreBlends": false,
+      "imageUrl": "/assets/creamearlgrey-yC8DmIAI.jpg",
+      "image": "/assets/creamearlgrey-yC8DmIAI.jpg"
+    }
+  ],
+  "equipment": [
+    {
+      "id": "vapt-vupt",
+      "name": "Preparador Vapt Vupt",
+      "tagline": "O padrão Talchá da infusão à mesa",
+      "specs": "Tritan · BPA Free · 500 ml (versões Slim e Glass 400ml)",
+      "description": "A forma mais prática e espetacular de preparar chá de folha inteira. Após a infusão, basta apoiar sobre a xícara ou copo de vidro duplo: a válvula inferior se abre e libera o chá cristalino coado sem pingar.",
+      "idealFor": "Cafeterias, restaurantes, bistrôs e spas que buscam agilidade operacional com alto impacto visual de mesa.",
+      "imageUrl": "/assets/vapt-vupt-talcha-1-B6WOclqk.jpg",
+      "image": "/assets/vapt-vupt-talcha-1-B6WOclqk.jpg"
+    },
+    {
+      "id": "copo-vidro-duplo",
+      "name": "Copos de Vidro Duplo",
+      "tagline": "Isolamento térmico e estética transparente",
+      "specs": "Vidro borossilicato · 120ml · 150ml · 280ml · 350ml · 450ml",
+      "description": "Parede dupla em vidro borossilicato: mantém o chá quente por muito mais tempo sem queimar as mãos do cliente, além de deixar à mostra a cor rubi, âmbar ou esmeralda de cada infusão.",
+      "idealFor": "Serviço à mesa em restaurantes, coquetelaria em drinks quentes e gelados.",
+      "imageUrl": "/assets/Copo-de-Vidro-Duplo-350ml-ZZDKSDSz.jpg",
+      "image": "/assets/Copo-de-Vidro-Duplo-350ml-ZZDKSDSz.jpg"
+    },
+    {
+      "id": "amostra-olfativa",
+      "name": "Display de Amostra Olfativa",
+      "tagline": "Escolher o chá pelo aroma à mesa",
+      "specs": "Display de madeira nobre com tubos de vidro e rolhas de cortiça",
+      "description": "Transforma a escolha do chá em um ritual sensorial inesquecível. Quando o cliente pede um chá, o garçom leva o display à mesa: o cliente abre os tubos, sente os aromas dos blends e escolhe seu preferido.",
+      "idealFor": "Restaurantes de alta gastronomia, hotéis e bistrôs que elevam o ticket médio.",
+      "imageUrl": "/assets/kit-favoritos-talcha-novo-ziaIHLYK.png",
+      "image": "/assets/kit-favoritos-talcha-novo-ziaIHLYK.png"
+    },
+    {
+      "id": "sache-piramidal",
+      "name": "Sachês Piramidais Biodegradáveis",
+      "tagline": "Folhas inteiras com a máxima conveniência",
+      "specs": "Material biodegradável em formato piramidal com tag Talchá",
+      "description": "O formato piramidal espaçoso permite que as folhas inteiras e pedaços de frutas se expandam livremente durante a infusão, entregando a mesma intensidade aromática do granel sem necessidade de infusores.",
+      "idealFor": "Room service de hotéis 5 estrelas, salas VIP corporativas, eventos rápidos e banquetes.",
+      "imageUrl": "/assets/talcha_b2b_servir-Df2AfCVZ.jpg",
+      "image": "/assets/talcha_b2b_servir-Df2AfCVZ.jpg"
+    }
+  ]
+}

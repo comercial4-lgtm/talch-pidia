@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>Talchapidia | Consultoria B2B & Carta de Chás para Restaurantes e Hotéis</title>
+    <meta name="description" content="Plataforma interativa B2B da Talchá. Crie sua carta de chás especiais sob medida, simule margens de lucro (+700%) e harmonize pratos para restaurantes, hotéis e eventos." />
+    <meta name="keywords" content="chá b2b, talchá, fornecedor de chá para restaurantes, carta de chás, chá especial atacado, infusor vapt vupt, harmonização de chá, hotelaria chás de luxo" />
+    <meta name="author" content="Talchá Chás Especiais" />
+    <link rel="canonical" href="https://talcha.com.br" />
+
+    <!-- OpenGraph Social Sharing Cards -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Talchapidia B2B" />
+    <meta property="og:title" content="Talchapidia | Curador e Simulador de Carta de Chás B2B" />
+    <meta property="og:description" content="Descubra o chá ideal, monte a carta do seu restaurante ou hotel com mais de 700% de margem e receba atendimento comercial direto." />
+    <meta property="og:locale" content="pt_BR" />
+
+    <!-- Twitter / X Cards -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Talchapidia | Curador B2B de Chás Especiais" />
+    <meta name="twitter:description" content="Curadoria, simulação de lucratividade e harmonização gastronômica de chás especiais para o mercado B2B." />
+
+    <!-- Schema.org JSON-LD Structured Data -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": "Organization",
+          "@id": "https://talcha.com.br/#organization",
+          "name": "Talchá",
+          "url": "https://talcha.com.br",
+          "logo": "https://talcha.com.br/logo.png",
+          "description": "Pioneira em chás especiais e blends autorais no Brasil desde 2010, atendendo mais de 500 restaurantes e hotéis de prestígio.",
+          "contactPoint": {
+            "@type": "ContactPoint",
+            "telephone": "+55-11-92596-3961",
+            "contactType": "sales",
+            "areaServed": "BR",
+            "availableLanguage": ["Portuguese", "English", "Spanish"]
+          }
+        },
+        {
+          "@type": "WebApplication",
+          "@id": "https://talcha.com.br/#webapp",
+          "name": "Talchapidia B2B",
+          "applicationCategory": "BusinessApplication",
+          "operatingSystem": "All",
+          "description": "Simulador interativo de cartas de chá, harmonização gastronômica e cálculo de lucratividade para estabelecimentos gastronômicos.",
+          "offers": {
+            "@type": "Offer",
+            "price": "0",
+            "priceCurrency": "BRL"
+          }
+        }
+      ]
+    }
+    </script>
+    <meta name="theme-color" content="#8B2635" />
+    <link rel="manifest" href="/manifest.json" />
+    <link rel="icon" type="image/svg+xml" href="/icon.svg" />
+    <link rel="apple-touch-icon" href="/icon.svg" />
+    <!-- Resource Hints & Font Subsetting (Latin + Latin-Ext for Portuguese Diacritics) -->
+    <link rel="dns-prefetch" href="https://fonts.googleapis.com" />
+    <link rel="dns-prefetch" href="https://fonts.gstatic.com" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+
+    <!-- 1. Ultra-fast Critical Brand & Hero Editorial Subsetting (~3KB) -->
+    <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,600;0,700;1,400;1,600;1,700&display=swap" />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,600;0,700;1,400;1,600;1,700&display=swap" />
+
+    <!-- 2. Critical Mobile UI Glyph Subsetting -->
+    <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" />
+    <script>
+      (function() {
+        try {
+          var mode = localStorage.getItem('talchapidia_theme_mode') || 'system';
+          var hour = new Date().getHours();
+          var isDay = hour >= 6 && hour < 18;
+          var isDark = mode === 'dark' || (mode === 'system' && !isDay);
+          if (isDark) {
+            document.documentElement.classList.add('dark');
+            document.documentElement.setAttribute('data-theme', 'dark');
+            document.documentElement.style.colorScheme = 'dark';
+          } else {
+            document.documentElement.classList.remove('dark');
+            document.documentElement.removeAttribute('data-theme');
+            document.documentElement.style.colorScheme = 'light';
+          }
+          if ('caches' in window) {
+            caches.keys().then(function(names) {
+              var staleNames = names.filter(function(name) {
+                return name.indexOf('v7') === -1;
+              });
+              if (staleNames.length > 0) {
+                Promise.all(staleNames.map(function(name) { return caches.delete(name); }))
+                  .then(function() {
+                    if ('serviceWorker' in navigator) {
+                      return navigator.serviceWorker.getRegistrations().then(function(regs) {
+                        return Promise.all(regs.map(function(r) { return r.update(); }));
+                      });
+                    }
+                  })
+                  .then(function() {
+                    if (!sessionStorage.getItem('talcha_sw_v7_reloaded')) {
+                      sessionStorage.setItem('talcha_sw_v7_reloaded', '1');
+                      window.location.reload();
+                    }
+                  });
+              }
+            });
+          }
+        } catch (e) {}
+      })();
+    </script>
+    <script type="module" crossorigin src="/assets/index-B-h_qskT.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-xYMwszd6.css">
+  <script src="/_aistudio-iframe.js?v=6634132a"></script></head>
+  <body class="bg-[#FAF7F2] dark:bg-[#111A15] text-[#1E1B18] dark:text-[#FAF7F2] antialiased selection:bg-[#EBE4D8] dark:selection:bg-[#3D523B]/60 selection:text-[#173322] dark:selection:text-[#FAF7F2] transition-colors duration-200">
+    <div id="root"></div>
+  </body>
+</html>
+

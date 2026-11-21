@@ -1,0 +1,6 @@
+{
+  "name": "Talchapidia | Consultoria B2B & Carta de Chás para Restaurantes e Hotéis",
+  "description": "Plataforma interativa B2B da Talchá. Crie sua carta de chás especiais sob medida, simule margens de lucro (+700%) e harmonize pratos para restaurantes, hotéis e eventos.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,0 +1,345 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Public/non-PII partner profile document stored at /users/{userId}.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "description": "Firebase Auth UID.",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_-]+$"
+        },
+        "displayName": {
+          "type": "string",
+          "description": "Partner display name.",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "role": {
+          "type": "string",
+          "enum": ["partner", "admin"],
+          "description": "User access role."
+        },
+        "tier": {
+          "type": "string",
+          "enum": ["prata", "ouro", "black"],
+          "description": "Commercial partnership tier."
+        },
+        "providerId": {
+          "type": "string",
+          "description": "Identity provider identifier.",
+          "maxLength": 64
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server creation timestamp."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server last update timestamp."
+        }
+      },
+      "required": ["uid", "displayName", "role", "tier", "providerId", "createdAt", "updatedAt"]
+    },
+    "UserPrivateInfo": {
+      "title": "UserPrivateInfo",
+      "description": "Strictly isolated PII document stored at /users/{userId}/private/info.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "description": "Owner UID.",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_-]+$"
+        },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "description": "Verified business email.",
+          "maxLength": 160
+        },
+        "company": {
+          "type": "string",
+          "description": "Establishment or company name.",
+          "maxLength": 150
+        },
+        "whatsapp": {
+          "type": "string",
+          "description": "Business WhatsApp contact number.",
+          "maxLength": 40
+        },
+        "city": {
+          "type": "string",
+          "description": "City/region of operation.",
+          "maxLength": 100
+        },
+        "lgpdConsent": {
+          "type": "boolean",
+          "description": "LGPD privacy consent flag."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server last update timestamp."
+        }
+      },
+      "required": ["uid", "email", "lgpdConsent", "updatedAt"]
+    },
+    "SavedCarta": {
+      "title": "SavedCarta",
+      "description": "Saved custom B2B tea menu stored under /users/{userId}/cartas/{cartaId}.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Document ID.",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_-]+$"
+        },
+        "uid": {
+          "type": "string",
+          "description": "Owner UID.",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_-]+$"
+        },
+        "ownerId": {
+          "type": "string",
+          "description": "Owner UID.",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_-]+$"
+        },
+        "name": {
+          "type": "string",
+          "description": "Saved menu name.",
+          "minLength": 1,
+          "maxLength": 140
+        },
+        "establishmentName": {
+          "type": "string",
+          "description": "Partner establishment name.",
+          "maxLength": 150
+        },
+        "businessType": {
+          "type": "string",
+          "description": "Hospitality segment.",
+          "maxLength": 80
+        },
+        "audienceProfile": {
+          "type": "string",
+          "description": "Target audience description.",
+          "maxLength": 200
+        },
+        "operatingHours": {
+          "type": "string",
+          "description": "Service operating hours.",
+          "maxLength": 120
+        },
+        "menuHighlights": {
+          "type": "string",
+          "description": "Culinary highlights summary.",
+          "maxLength": 500
+        },
+        "serviceFormat": {
+          "type": "string",
+          "description": "Tableside service format.",
+          "maxLength": 160
+        },
+        "cartaTitle": {
+          "type": "string",
+          "description": "Printed menu title.",
+          "maxLength": 160
+        },
+        "itemCount": {
+          "type": "number",
+          "description": "Number of selected blends (1 to 20)."
+        },
+        "customBlendIds": {
+          "type": "array",
+          "description": "Up to 20 selected tea blend IDs."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server creation timestamp."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server last update timestamp."
+        }
+      },
+      "required": ["id", "uid", "ownerId", "name", "businessType", "itemCount", "createdAt", "updatedAt"]
+    },
+    "B2BLead": {
+      "title": "B2BLead",
+      "description": "B2B commercial inquiry or sample request submitted by an authenticated partner.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Lead document ID.",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_-]+$"
+        },
+        "uid": {
+          "type": "string",
+          "description": "Owner UID.",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_-]+$"
+        },
+        "ownerId": {
+          "type": "string",
+          "description": "Owner UID.",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_-]+$"
+        },
+        "name": {
+          "type": "string",
+          "description": "Contact person name.",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "company": {
+          "type": "string",
+          "description": "Company or venue name.",
+          "minLength": 1,
+          "maxLength": 150
+        },
+        "role": {
+          "type": "string",
+          "description": "Contact job title.",
+          "maxLength": 100
+        },
+        "whatsapp": {
+          "type": "string",
+          "description": "WhatsApp number.",
+          "maxLength": 40
+        },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "description": "Contact email address.",
+          "maxLength": 160
+        },
+        "city": {
+          "type": "string",
+          "description": "City.",
+          "maxLength": 100
+        },
+        "estimatedQuantity": {
+          "type": "string",
+          "description": "Estimated monthly consumption.",
+          "maxLength": 120
+        },
+        "interestType": {
+          "type": "string",
+          "enum": ["proposta", "experimentar", "carta", "especialista", "evento"],
+          "description": "Inquiry category."
+        },
+        "recommendedTeaName": {
+          "type": "string",
+          "description": "Selected tea or blend name.",
+          "maxLength": 160
+        },
+        "notes": {
+          "type": "string",
+          "description": "Additional commercial notes.",
+          "maxLength": 1000
+        },
+        "status": {
+          "type": "string",
+          "enum": ["novo", "em_atendimento", "concluido"],
+          "description": "Workflow status."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server creation timestamp."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server update timestamp."
+        }
+      },
+      "required": ["id", "uid", "ownerId", "name", "company", "email", "interestType", "status", "createdAt", "updatedAt"]
+    },
+    "SecurityAuditLog": {
+      "title": "SecurityAuditLog",
+      "description": "Immutable authentication and security audit event log.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "description": "Authenticated actor UID.",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_-]+$"
+        },
+        "actorUid": {
+          "type": "string",
+          "description": "Authenticated actor UID.",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_-]+$"
+        },
+        "action": {
+          "type": "string",
+          "description": "Audit action code.",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "resource": {
+          "type": "string",
+          "description": "Target resource identifier.",
+          "maxLength": 160
+        },
+        "severity": {
+          "type": "string",
+          "enum": ["info", "warn", "error"],
+          "description": "Severity level."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server event timestamp."
+        }
+      },
+      "required": ["uid", "actorUid", "action", "resource", "severity", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "Non-PII partner profile owned by {userId}."
+    },
+    "/users/{userId}/private/info": {
+      "schema": { "$ref": "#/entities/UserPrivateInfo" },
+      "description": "Isolated PII contact information strictly accessible to owner {userId} or admin."
+    },
+    "/users/{userId}/cartas/{cartaId}": {
+      "schema": { "$ref": "#/entities/SavedCarta" },
+      "description": "Saved custom tea menus created by user {userId}."
+    },
+    "/b2b_leads/{leadId}": {
+      "schema": { "$ref": "#/entities/B2BLead" },
+      "description": "B2B lead and sample requests scoped to ownerId == request.auth.uid."
+    },
+    "/security_audit_logs/{logId}": {
+      "schema": { "$ref": "#/entities/SecurityAuditLog" },
+      "description": "Append-only security audit log entries created by verified users."
+    }
+  }
+}
