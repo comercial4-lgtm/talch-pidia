@@ -111,13 +111,13 @@
           if ('caches' in window) {
             caches.keys().then(function(names) {
               var staleNames = names.filter(function(name) {
-                return name.indexOf('v37') === -1;
+                return name.indexOf('v45') === -1;
               });
               if (staleNames.length > 0) {
                 Promise.all(staleNames.map(function(name) { return caches.delete(name); }))
                   .then(function() {
-                    if (!sessionStorage.getItem('talcha_sw_v37_reloaded')) {
-                      sessionStorage.setItem('talcha_sw_v37_reloaded', '1');
+                    if (!sessionStorage.getItem('talcha_sw_v45_reloaded')) {
+                      sessionStorage.setItem('talcha_sw_v45_reloaded', '1');
                       window.location.reload();
                     }
                   });
@@ -127,8 +127,8 @@
         } catch (e) {}
       })();
     </script>
-    <script type="module" crossorigin src="/assets/index-B-h_qskT.js?v=37"></script>
-    <link rel="stylesheet" crossorigin href="/assets/index-xYMwszd6.css?v=37">
+    <script type="module" crossorigin src="/assets/index-B-h_qskT.js?v=44"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-xYMwszd6.css?v=44">
   </head>
   <body class="bg-[#FAF7F2] dark:bg-[#111A15] text-[#1E1B18] dark:text-[#FAF7F2] antialiased selection:bg-[#EBE4D8] dark:selection:bg-[#3D523B]/60 selection:text-[#173322] dark:selection:text-[#FAF7F2] transition-colors duration-200">
     <div id="root"></div>

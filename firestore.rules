@@ -124,6 +124,44 @@ service cloud.firestore {
         && data.updatedAt is timestamp;
     }
 
+    function isValidCartaCha(data, cartaId) {
+      return data.keys().hasAll([
+          'id', 'uid', 'ownerId', 'nome', 'segmento', 'itensCount',
+          'statusProposta', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'id', 'uid', 'ownerId', 'nome', 'estabelecimento', 'segmento',
+          'formatoServico', 'itensCount', 'blends', 'statusProposta',
+          'observacoes', 'createdAt', 'updatedAt'
+        ])
+        && isValidId(data.id)
+        && data.id == cartaId
+        && isValidId(data.uid)
+        && data.uid == request.auth.uid
+        && isValidId(data.ownerId)
+        && data.ownerId == request.auth.uid
+        && data.nome is string
+        && data.nome.size() >= 1
+        && data.nome.size() <= 140
+        && (!data.keys().hasAny(['estabelecimento']) || (data.estabelecimento is string && data.estabelecimento.size() <= 150))
+        && data.segmento is string
+        && data.segmento.size() >= 1
+        && data.segmento.size() <= 80
+        && (!data.keys().hasAny(['formatoServico']) || (data.formatoServico is string && data.formatoServico.size() <= 160))
+        && (data.itensCount is int || data.itensCount is float)
+        && data.itensCount >= 1
+        && data.itensCount <= 20
+        && (!data.keys().hasAny(['blends']) || (
+          data.blends is list
+          && data.blends.size() <= 20
+          && (data.blends.size() == 0 || (data.blends[0] is string && data.blends[0].size() <= 80))
+        ))
+        && data.statusProposta in ['pendente', 'em_analise', 'aprovada']
+        && (!data.keys().hasAny(['observacoes']) || (data.observacoes is string && data.observacoes.size() <= 500))
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
     function isValidB2BLead(data, leadId) {
       return data.keys().hasAll([
           'id', 'uid', 'ownerId', 'name', 'company', 'email', 'interestType',
@@ -311,6 +349,51 @@ service cloud.firestore {
           || (isOwner(userId) && existing().ownerId == request.auth.uid)
         );
       }
+    }
+
+    // =========================================================================
+    // Collection: /cartas_cha/{cartaId}
+    // =========================================================================
+    match /cartas_cha/{cartaId} {
+      allow get: if isSignedIn() && isValidId(cartaId) && (
+        isAdmin() || (existing().ownerId == request.auth.uid && existing().uid == request.auth.uid)
+      );
+
+      allow list: if isSignedIn()
+        && existing().ownerId == request.auth.uid
+        && existing().uid == request.auth.uid;
+
+      allow create: if isVerifiedSignedIn()
+        && isValidId(cartaId)
+        && isValidCartaCha(incoming(), cartaId)
+        && incoming().statusProposta == 'pendente'
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+
+      allow update: if isVerifiedSignedIn()
+        && isValidId(cartaId)
+        && isValidCartaCha(incoming(), cartaId)
+        && incoming().id == existing().id
+        && incoming().uid == existing().uid
+        && incoming().ownerId == existing().ownerId
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (
+          isAdmin()
+          || (
+            existing().ownerId == request.auth.uid
+            && existing().statusProposta != 'aprovada'
+            && incoming().statusProposta == existing().statusProposta
+            && incoming().diff(existing()).affectedKeys().hasOnly([
+              'nome', 'estabelecimento', 'segmento', 'formatoServico',
+              'itensCount', 'blends', 'observacoes', 'updatedAt'
+            ])
+          )
+        );
+
+      allow delete: if isVerifiedSignedIn() && isValidId(cartaId) && (
+        isAdmin() || existing().ownerId == request.auth.uid
+      );
     }
 
     // =========================================================================

@@ -38,8 +38,25 @@ import {
   Hourglass,
   BadgeCheck,
   ArrowRight,
+  TrendingUp,
 } from 'lucide-react';
+import {
+  CartesianGrid,
+  Line,
+  LineChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from 'recharts';
 import CartaPdfPreviewModal from './CartaPdfPreviewModal';
+import {
+  DashboardEstabelecimento as CartasChaFirestoreSection,
+  buildMonthlyRevenueTrend,
+  TALCHA_GROSS_MARGIN_RATE,
+  type HydratedCartaChaPayload,
+  type MonthlyRevenueTrendPoint,
+} from './components/DashboardEstabelecimento';
 
 export interface SavedCartaItem {
   id: string;
@@ -55,12 +72,16 @@ export interface SavedCartaItem {
   cartaTitle?: string;
   itemCount: number;
   customBlendIds?: string[];
+  blends?: string[];
+  statusProposta?: 'pendente' | 'em_analise' | 'aprovada';
   removedBlendIds?: string[];
   replacedBlendMap?: Record<string, string>;
   savedAt?: string;
   createdAt?: string;
   updatedAt?: string;
   source?: 'cloud' | 'local';
+  _editInCurator?: boolean;
+  _loadedFromFirestore?: boolean;
 }
 
 export type LeadStatus = 'novo' | 'em_atendimento' | 'concluido';
@@ -450,7 +471,7 @@ function DashboardEstabelecimentoInner({
   } = useAuth();
   const { language, localize } = useLang();
 
-  const [activeTab, setActiveTab] = useState<'overview' | 'cartas' | 'propostas'>(() => {
+  const [activeTab, setActiveTab] = useState<'overview' | 'cartas' | 'cartas_cha' | 'propostas'>(() => {
     const init = (globalThis as any).__TALCHA_DASHBOARD_INIT_STATE__;
     if (variant === 'full' && init?.tab) return init.tab;
     return 'overview';
@@ -485,6 +506,7 @@ function DashboardEstabelecimentoInner({
   const [editCartaHighlights, setEditCartaHighlights] = useState('');
   const [savingCartaId, setSavingCartaId] = useState<string | null>(null);
   const [syncingCartaId, setSyncingCartaId] = useState<string | null>(null);
+  const [loadingCuratorCartaId, setLoadingCuratorCartaId] = useState<string | null>(null);
 
   // Inline Interactions
   const [confirmDeleteCartaId, setConfirmDeleteCartaId] = useState<string | null>(null);
@@ -707,6 +729,78 @@ function DashboardEstabelecimentoInner({
           firestoreIssue = err?.message || 'Erro ao sincronizar cartas na nuvem.';
         }
 
+        // 1B. Query top-level /cartas_cha history scoped to logged-in user
+        try {
+          const chaDocs = await runFirestoreQuery({
+            projectId: firebase.config.projectId,
+            databaseId: firebase.config.firestoreDatabaseId || '(default)',
+            idToken,
+            structuredQuery: {
+              from: [{ collectionId: 'cartas_cha' }],
+              where: {
+                compositeFilter: {
+                  op: 'AND',
+                  filters: [
+                    {
+                      fieldFilter: {
+                        field: { fieldPath: 'ownerId' },
+                        op: 'EQUAL',
+                        value: { stringValue: safeUid },
+                      },
+                    },
+                    {
+                      fieldFilter: {
+                        field: { fieldPath: 'uid' },
+                        op: 'EQUAL',
+                        value: { stringValue: safeUid },
+                      },
+                    },
+                  ],
+                },
+              },
+            },
+          });
+          for (const d of chaDocs) {
+            const docId = String(d.id);
+            const rawStatus = String(d.statusProposta || 'pendente');
+            const statusProposta =
+              rawStatus === 'aprovada' || rawStatus === 'em_analise' || rawStatus === 'pendente'
+                ? (rawStatus as 'pendente' | 'em_analise' | 'aprovada')
+                : 'pendente';
+            const existing = cloudCartas.find((c) => c.id === docId);
+            const blendsArr = Array.isArray(d.blends) ? d.blends.map(String) : [];
+            if (existing) {
+              existing.statusProposta = statusProposta;
+              if (blendsArr.length > 0) existing.blends = blendsArr;
+              if (d.itensCount) existing.itemCount = Math.max(1, Number(d.itensCount) || existing.itemCount);
+              if (d.createdAt && !existing.createdAt) existing.createdAt = String(d.createdAt);
+              if (d.updatedAt) existing.updatedAt = String(d.updatedAt);
+            } else {
+              cloudCartas.push({
+                id: docId,
+                uid: d.uid || safeUid,
+                ownerId: d.ownerId || safeUid,
+                name: String(d.nome || 'Carta de Chás'),
+                establishmentName: d.estabelecimento ? String(d.estabelecimento) : '',
+                businessType: String(d.segmento || 'Restaurante'),
+                serviceFormat: d.formatoServico ? String(d.formatoServico) : '',
+                menuHighlights: d.observacoes ? String(d.observacoes) : '',
+                itemCount: Math.max(1, Number(d.itensCount) || blendsArr.length || 4),
+                blends: blendsArr,
+                statusProposta,
+                createdAt: d.createdAt ? String(d.createdAt) : undefined,
+                updatedAt: d.updatedAt ? String(d.updatedAt) : undefined,
+                savedAt: d.updatedAt ? String(d.updatedAt) : d.createdAt ? String(d.createdAt) : undefined,
+                source: 'cloud' as const,
+              });
+            }
+          }
+        } catch (err: any) {
+          try {
+            firebase.handleFirestoreError(err, firebase.OperationType.LIST, 'cartas_cha');
+          } catch {}
+        }
+
         // 2. Query /b2b_leads
         if (firebaseUser.emailVerified) {
           try {
@@ -872,6 +966,23 @@ function DashboardEstabelecimentoInner({
           createdAt: firebase.serverTimestamp(),
           updatedAt: firebase.serverTimestamp(),
         });
+        await firebase
+          .setDoc(firebase.doc(firebase.db, 'cartas_cha', safeCartaId), {
+            id: safeCartaId,
+            uid: safeUid,
+            ownerId: safeUid,
+            nome: storage.sanitizeText(carta.name, 140, 'Carta Personalizada'),
+            estabelecimento: storage.sanitizeText(carta.establishmentName, 150, ''),
+            segmento: storage.sanitizeText(carta.businessType, 80, 'Restaurante'),
+            formatoServico: storage.sanitizeText(carta.serviceFormat, 160, 'Serviço de Salão'),
+            itensCount: Math.max(1, Math.min(20, Number(carta.itemCount) || 4)),
+            blends: customIds.filter(Boolean),
+            statusProposta: 'pendente',
+            observacoes: storage.sanitizeText(carta.menuHighlights, 500, ''),
+            createdAt: firebase.serverTimestamp(),
+            updatedAt: firebase.serverTimestamp(),
+          })
+          .catch(() => {});
       } catch (err) {
         firebase.handleFirestoreError(err, firebase.OperationType.CREATE, path);
       }
@@ -1003,6 +1114,148 @@ function DashboardEstabelecimentoInner({
     }
   };
 
+  // Load saved Firestore state back into Curator for full edition
+  const handleOpenCartaInCurator = useCallback(
+    async (carta?: SavedCartaItem) => {
+      if (!onOpenCarta) return;
+      if (!carta) {
+        onOpenCarta();
+        return;
+      }
+      if (carta.id.startsWith('preset_')) {
+        onOpenCarta(carta);
+        return;
+      }
+
+      setLoadingCuratorCartaId(carta.id);
+      let hydrated: SavedCartaItem = {
+        ...carta,
+        _editInCurator: true,
+        _loadedFromFirestore: carta.source === 'cloud',
+      };
+
+      try {
+        if (firebaseUser && firebase.getDoc) {
+          const safeUid = storage.sanitizeId(firebaseUser.uid);
+          const safeCartaId = storage.sanitizeId(carta.id);
+
+          try {
+            const userCartaSnap = await firebase.getDoc(
+              firebase.doc(firebase.db, 'users', safeUid, 'cartas', safeCartaId)
+            );
+            if (userCartaSnap.exists()) {
+              const d = userCartaSnap.data() as Record<string, any>;
+              hydrated = {
+                ...hydrated,
+                id: String(d.id || safeCartaId),
+                uid: d.uid || safeUid,
+                ownerId: d.ownerId || safeUid,
+                name: String(d.name || hydrated.name || 'Carta B2B'),
+                establishmentName: d.establishmentName ?? hydrated.establishmentName ?? '',
+                businessType: String(d.businessType || hydrated.businessType || 'Restaurante'),
+                audienceProfile: d.audienceProfile ?? hydrated.audienceProfile ?? '',
+                operatingHours: d.operatingHours ?? hydrated.operatingHours ?? '',
+                menuHighlights: d.menuHighlights ?? hydrated.menuHighlights ?? '',
+                serviceFormat: d.serviceFormat ?? hydrated.serviceFormat ?? '',
+                cartaTitle: d.cartaTitle ?? hydrated.cartaTitle ?? '',
+                itemCount: Math.max(1, Number(d.itemCount) || hydrated.itemCount || 4),
+                customBlendIds: Array.isArray(d.customBlendIds)
+                  ? d.customBlendIds.map(String)
+                  : hydrated.customBlendIds,
+                source: 'cloud',
+                _loadedFromFirestore: true,
+              };
+            }
+          } catch (err) {
+            if (carta.source === 'cloud') {
+              try {
+                firebase.handleFirestoreError(
+                  err,
+                  firebase.OperationType.GET,
+                  `users/${safeUid}/cartas/${safeCartaId}`
+                );
+              } catch {
+                // Keep snapshot data as graceful fallback
+              }
+            }
+          }
+
+          try {
+            const chaSnap = await firebase.getDoc(
+              firebase.doc(firebase.db, 'cartas_cha', safeCartaId)
+            );
+            if (chaSnap.exists()) {
+              const c = chaSnap.data() as Record<string, any>;
+              const rawStatus = String(c.statusProposta || hydrated.statusProposta || 'pendente');
+              hydrated = {
+                ...hydrated,
+                name: c.nome ? String(c.nome) : hydrated.name,
+                establishmentName:
+                  c.estabelecimento !== undefined
+                    ? String(c.estabelecimento)
+                    : hydrated.establishmentName,
+                businessType: c.segmento ? String(c.segmento) : hydrated.businessType,
+                serviceFormat:
+                  c.formatoServico !== undefined
+                    ? String(c.formatoServico)
+                    : hydrated.serviceFormat,
+                menuHighlights:
+                  c.observacoes !== undefined ? String(c.observacoes) : hydrated.menuHighlights,
+                itemCount: Number(c.itensCount) || hydrated.itemCount,
+                blends: Array.isArray(c.blends) ? c.blends.map(String) : hydrated.blends,
+                statusProposta:
+                  rawStatus === 'aprovada' || rawStatus === 'em_analise' || rawStatus === 'pendente'
+                    ? rawStatus
+                    : 'pendente',
+                source: 'cloud',
+                _loadedFromFirestore: true,
+              };
+            }
+          } catch {
+            // cartas_cha counterpart is optional for legacy /users/{uid}/cartas docs
+          }
+        }
+        onOpenCarta(hydrated);
+      } finally {
+        setLoadingCuratorCartaId(null);
+      }
+    },
+    [firebase, firebaseUser, onOpenCarta, storage]
+  );
+
+  const handleOpenCartaChaDocInCurator = useCallback(
+    (cartaCha?: HydratedCartaChaPayload) => {
+      if (!onOpenCarta) return;
+      if (!cartaCha) {
+        onOpenCarta();
+        return;
+      }
+
+      const payload: SavedCartaItem = {
+        id: cartaCha.id,
+        uid: cartaCha.uid,
+        ownerId: cartaCha.ownerId,
+        name: cartaCha.name || cartaCha.nome || 'Carta de Chás',
+        establishmentName: cartaCha.establishmentName ?? cartaCha.estabelecimento ?? '',
+        businessType: cartaCha.businessType || cartaCha.segmento || 'Restaurante',
+        audienceProfile: cartaCha.audienceProfile || '',
+        operatingHours: cartaCha.operatingHours || '',
+        menuHighlights: cartaCha.menuHighlights ?? cartaCha.observacoes ?? '',
+        serviceFormat: cartaCha.serviceFormat ?? cartaCha.formatoServico ?? '',
+        cartaTitle: cartaCha.cartaTitle || cartaCha.nome,
+        itemCount: Math.max(1, Number(cartaCha.itemCount || cartaCha.itensCount) || 4),
+        customBlendIds: Array.isArray(cartaCha.customBlendIds) ? cartaCha.customBlendIds : undefined,
+        blends: Array.isArray(cartaCha.blends) ? cartaCha.blends : undefined,
+        statusProposta: cartaCha.statusProposta,
+        source: 'cloud',
+        _editInCurator: true,
+        _loadedFromFirestore: true,
+      };
+      onOpenCarta(payload);
+    },
+    [onOpenCarta]
+  );
+
   const handleDuplicateCarta = async (carta: SavedCartaItem) => {
     if (syncingCartaId) return;
     setSyncingCartaId(carta.id);
@@ -1058,6 +1311,7 @@ function DashboardEstabelecimentoInner({
         const path = `users/${safeUid}/cartas/${safeCartaId}`;
         try {
           await firebase.deleteDoc(firebase.doc(firebase.db, 'users', safeUid, 'cartas', safeCartaId));
+          await firebase.deleteDoc(firebase.doc(firebase.db, 'cartas_cha', safeCartaId)).catch(() => {});
         } catch (err) {
           firebase.handleFirestoreError(err, firebase.OperationType.DELETE, path);
         }
@@ -1313,6 +1567,35 @@ function DashboardEstabelecimentoInner({
     };
   }, [cartas, proposals]);
 
+  const revenueTrend = useMemo(() => {
+    const loc = language === 'en' ? 'en-US' : language === 'es' ? 'es-ES' : 'pt-BR';
+    return buildMonthlyRevenueTrend(cartas, loc);
+  }, [cartas, language]);
+
+  const currentMonthlyPotential =
+    revenueTrend.length > 0
+      ? revenueTrend[revenueTrend.length - 1].receitaPotencialMensal
+      : 0;
+  const currentMonthlyGrossProfit = Math.round(
+    currentMonthlyPotential * TALCHA_GROSS_MARGIN_RATE
+  );
+
+  const formatBrlCurrency = useCallback((value: number) => {
+    return new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL',
+      maximumFractionDigits: 0,
+    }).format(value);
+  }, []);
+
+  const formatBrlAxis = useCallback((value: number) => {
+    if (value >= 1000) {
+      const k = value / 1000;
+      return `R$ ${Number.isInteger(k) ? k : k.toFixed(1).replace('.', ',')}k`;
+    }
+    return `R$ ${Math.round(value)}`;
+  }, []);
+
   const latestProposal = useMemo(() => proposals[0] || null, [proposals]);
 
   const filteredCartas = useMemo(() => {
@@ -1347,12 +1630,165 @@ function DashboardEstabelecimentoInner({
     });
   }, [proposals, proposalSearch, proposalStatusFilter, proposalTypeFilter]);
 
+  const handleExportHistoryCsv = useCallback(() => {
+    const rowsToExport = filteredCartas.length > 0 ? filteredCartas : cartas;
+    if (rowsToExport.length === 0) {
+      showFeedback(
+        'error',
+        localize(
+          'Nenhuma carta de chá disponível para exportar.',
+          'No tea menus available to export.',
+          'Ninguna carta de té disponible para exportar.'
+        )
+      );
+      return;
+    }
+
+    const escapeCell = (value: unknown) => {
+      let str = String(value ?? '').replace(/[\r\n]+/g, ' ').trim();
+      if (/^[=+\-@\t]/.test(str)) {
+        str = `'${str}`;
+      }
+      return `"${str.replace(/"/g, '""')}"`;
+    };
+
+    const headers = [
+      'ID do Documento',
+      'Nome da Carta',
+      'Estabelecimento',
+      'Segmento',
+      'Formato de Serviço',
+      'Qtd. Blends',
+      'Blends Selecionados',
+      'Status da Proposta',
+      'Origem',
+      'Data de Criação',
+      'Última Atualização',
+      'Observações',
+    ];
+
+    const lines = [
+      headers.map(escapeCell).join(','),
+      ...rowsToExport.map((carta) => {
+        const matchedProposal = findMatchingProposalForCarta(carta, proposals);
+        let statusLabel = localize('Sem Proposta', 'No Proposal', 'Sin Propuesta');
+        if (carta.statusProposta === 'aprovada' || matchedProposal?.status === 'concluido') {
+          statusLabel = localize('Aprovada', 'Approved', 'Aprobada');
+        } else if (
+          carta.statusProposta === 'em_analise' ||
+          matchedProposal?.status === 'em_atendimento'
+        ) {
+          statusLabel = localize('Em Análise', 'Under Review', 'En Análisis');
+        } else if (carta.statusProposta === 'pendente' || matchedProposal?.status === 'novo') {
+          statusLabel = localize('Pendente', 'Pending', 'Pendiente');
+        }
+
+        const resolved = resolveCartaBlends(carta);
+        const blendsText =
+          Array.isArray(carta.blends) && carta.blends.length > 0
+            ? carta.blends.join('; ')
+            : resolved.items.map((item) => item.name).join('; ');
+
+        return [
+          carta.id,
+          carta.name,
+          carta.establishmentName || establishmentTitle || '',
+          carta.businessType || '',
+          carta.serviceFormat || '',
+          carta.itemCount || resolved.items.length || 0,
+          blendsText,
+          statusLabel,
+          carta.source === 'cloud' ? 'Firestore' : 'Local',
+          formatDateTime(carta.createdAt || carta.savedAt || carta.updatedAt, language),
+          formatDateTime(carta.updatedAt || carta.savedAt || carta.createdAt, language),
+          carta.menuHighlights || '',
+        ]
+          .map(escapeCell)
+          .join(',');
+      }),
+    ];
+
+    try {
+      const csvContent = '\uFEFF' + lines.join('\r\n');
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const dateStamp = new Date().toISOString().slice(0, 10);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `talcha_historico_cartas_${dateStamp}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+
+      showFeedback(
+        'success',
+        localize(
+          `Histórico exportado em CSV (${rowsToExport.length} ${rowsToExport.length === 1 ? 'carta' : 'cartas'}).`,
+          `History exported to CSV (${rowsToExport.length} menus).`,
+          `Historial exportado en CSV (${rowsToExport.length} cartas).`
+        )
+      );
+    } catch {
+      showFeedback(
+        'error',
+        localize(
+          'Não foi possível gerar o arquivo CSV.',
+          'Failed to generate CSV file.',
+          'No se pudo generar el archivo CSV.'
+        )
+      );
+    }
+  }, [
+    cartas,
+    establishmentTitle,
+    filteredCartas,
+    language,
+    localize,
+    proposals,
+    resolveCartaBlends,
+    showFeedback,
+  ]);
+
   // If Auth isn't ready yet on compact view or no logged-in user on compact view, do not clutter Landing
   if (!isAuthReady) {
     if (variant === 'compact') return null;
     return (
-      <div id="talcha-dashboard-estabelecimento-scope" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="h-36 rounded-2xl bg-white dark:bg-[#1A1613] border border-[#E5DACB] dark:border-[#352C23] animate-pulse p-6" />
+      <div
+        id="talcha-dashboard-estabelecimento-scope"
+        role="status"
+        aria-label={localize('Carregando painel do estabelecimento...', 'Loading establishment dashboard...', 'Cargando panel...')}
+        className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6 animate-pulse"
+      >
+        <div className="rounded-2xl bg-white dark:bg-[#1A1613] border border-[#E5DACB] dark:border-[#352C23] p-5 sm:p-6 space-y-5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[#EDE3D5] dark:border-[#2E251D]">
+            <div className="flex items-center gap-3.5">
+              <div className="w-12 h-12 rounded-xl bg-[#EDE3D5] dark:bg-[#2E251D] shrink-0" />
+              <div className="space-y-2">
+                <div className="h-3 w-44 rounded bg-[#EDE3D5] dark:bg-[#2E251D]" />
+                <div className="h-6 w-60 rounded bg-[#E5DACB] dark:bg-[#352C23]" />
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="h-9 w-28 rounded-xl bg-[#EDE3D5] dark:bg-[#2E251D]" />
+              <div className="h-9 w-32 rounded-xl bg-[#E5DACB] dark:bg-[#352C23]" />
+            </div>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {[1, 2, 3].map((idx) => (
+              <div
+                key={idx}
+                className="rounded-xl border border-[#EDE3D5] dark:border-[#322921] bg-[#FAF7F2]/80 dark:bg-[#221C17] p-4 space-y-2"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="h-3.5 w-24 rounded bg-[#EDE3D5] dark:bg-[#2E251D]" />
+                  <div className="h-6 w-8 rounded bg-[#E5DACB] dark:bg-[#352C23]" />
+                </div>
+                <div className="h-3 w-36 rounded bg-[#EDE3D5] dark:bg-[#2E251D]" />
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
     );
   }
@@ -1475,48 +1911,58 @@ function DashboardEstabelecimentoInner({
         </div>
 
         {/* Visual Pipeline Progress Bar across Pendente / Em Análise / Aprovada */}
-        {!loading && totalProposals > 0 && (
-          <div className="pt-3.5 space-y-1.5">
-            <div className="h-2 w-full rounded-full overflow-hidden bg-[#EDE3D5] dark:bg-[#2E251D] flex">
-              {kpis.pendingCount > 0 && (
-                <div
-                  style={{ width: `${pendingPct}%` }}
-                  className="h-full bg-[#8B2635] transition-all duration-300"
-                  title={`${localize('Pendente', 'Pending', 'Pendiente')}: ${kpis.pendingCount}`}
-                />
-              )}
-              {kpis.inReviewCount > 0 && (
-                <div
-                  style={{ width: `${inReviewPct}%` }}
-                  className="h-full bg-[#C68A36] transition-all duration-300"
-                  title={`${localize('Em Análise', 'Under Review', 'En Análisis')}: ${kpis.inReviewCount}`}
-                />
-              )}
-              {kpis.approvedCount > 0 && (
-                <div
-                  style={{ width: `${approvedPct}%` }}
-                  className="h-full bg-[#2E6B34] transition-all duration-300"
-                  title={`${localize('Aprovada', 'Approved', 'Aprobada')}: ${kpis.approvedCount}`}
-                />
-              )}
-            </div>
-            <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-[#6E6659] dark:text-[#A89E90] tabular-nums">
-              <span>
-                {localize(
-                  `${totalProposals} proposta(s) comercial(is) vinculada(s) à conta`,
-                  `${totalProposals} commercial proposal(s) linked to account`,
-                  `${totalProposals} propuesta(s) comercial(es) vinculada(s)`
-                )}
-              </span>
-              <span>
-                {kpis.approvedCount > 0
-                  ? `${approvedPct}% ${localize('aprovada(s)', 'approved', 'aprobada(s)')}`
-                  : kpis.inReviewCount > 0
-                  ? `${kpis.inReviewCount} ${localize('em análise comercial', 'under review', 'en análisis')}`
-                  : `${kpis.pendingCount} ${localize('pendente(s)', 'pending', 'pendiente(s)')}`}
-              </span>
+        {loading ? (
+          <div className="pt-3.5 space-y-2 animate-pulse">
+            <div className="h-2 w-full rounded-full bg-[#EDE3D5] dark:bg-[#2E251D]" />
+            <div className="flex items-center justify-between">
+              <div className="h-3 w-48 rounded bg-[#EDE3D5] dark:bg-[#2E251D]" />
+              <div className="h-3 w-24 rounded bg-[#EDE3D5] dark:bg-[#2E251D]" />
             </div>
           </div>
+        ) : (
+          totalProposals > 0 && (
+            <div className="pt-3.5 space-y-1.5">
+              <div className="h-2 w-full rounded-full overflow-hidden bg-[#EDE3D5] dark:bg-[#2E251D] flex">
+                {kpis.pendingCount > 0 && (
+                  <div
+                    style={{ width: `${pendingPct}%` }}
+                    className="h-full bg-[#8B2635] transition-all duration-300"
+                    title={`${localize('Pendente', 'Pending', 'Pendiente')}: ${kpis.pendingCount}`}
+                  />
+                )}
+                {kpis.inReviewCount > 0 && (
+                  <div
+                    style={{ width: `${inReviewPct}%` }}
+                    className="h-full bg-[#C68A36] transition-all duration-300"
+                    title={`${localize('Em Análise', 'Under Review', 'En Análisis')}: ${kpis.inReviewCount}`}
+                  />
+                )}
+                {kpis.approvedCount > 0 && (
+                  <div
+                    style={{ width: `${approvedPct}%` }}
+                    className="h-full bg-[#2E6B34] transition-all duration-300"
+                    title={`${localize('Aprovada', 'Approved', 'Aprobada')}: ${kpis.approvedCount}`}
+                  />
+                )}
+              </div>
+              <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-[#6E6659] dark:text-[#A89E90] tabular-nums">
+                <span>
+                  {localize(
+                    `${totalProposals} proposta(s) comercial(is) vinculada(s) à conta`,
+                    `${totalProposals} commercial proposal(s) linked to account`,
+                    `${totalProposals} propuesta(s) comercial(es) vinculada(s)`
+                  )}
+                </span>
+                <span>
+                  {kpis.approvedCount > 0
+                    ? `${approvedPct}% ${localize('aprovada(s)', 'approved', 'aprobada(s)')}`
+                    : kpis.inReviewCount > 0
+                    ? `${kpis.inReviewCount} ${localize('em análise comercial', 'under review', 'en análisis')}`
+                    : `${kpis.pendingCount} ${localize('pendente(s)', 'pending', 'pendiente(s)')}`}
+                </span>
+              </div>
+            </div>
+          )
         )}
 
         {/* 3-Stage Status Pipeline Cards */}
@@ -1553,9 +1999,13 @@ function DashboardEstabelecimentoInner({
                     <IconComp className="w-4 h-4 shrink-0" />
                     <span>{st.label}</span>
                   </span>
-                  <span className="font-serif-editorial text-2xl font-bold text-[#1E1B18] dark:text-[#FAF8F5] tabular-nums">
-                    {loading ? '—' : st.count}
-                  </span>
+                  {loading ? (
+                    <span className="h-7 w-9 rounded-md bg-[#E5DACB] dark:bg-[#352C23] animate-pulse inline-block" />
+                  ) : (
+                    <span className="font-serif-editorial text-2xl font-bold text-[#1E1B18] dark:text-[#FAF8F5] tabular-nums">
+                      {st.count}
+                    </span>
+                  )}
                 </div>
                 <p className="mt-1.5 text-xs text-[#6E6659] dark:text-[#A89E90]">
                   {st.sublabel}
@@ -1632,18 +2082,70 @@ function DashboardEstabelecimentoInner({
               <h3 className="font-serif-editorial text-lg font-bold text-[#1E1B18] dark:text-[#FAF8F5]">
                 {localize('Cartas de Chá Criadas (Firestore)', 'Created Tea Menus (Firestore)', 'Cartas de Té Creadas')}
               </h3>
-              <button
-                type="button"
-                onClick={() => onOpenCarta()}
-                className="text-xs font-semibold text-[#8B2635] dark:text-[#E88E9B] hover:underline inline-flex items-center gap-1 cursor-pointer"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                <span>{localize('Nova Carta de Chá', 'New Tea Menu', 'Nueva Carta')}</span>
-              </button>
+              <div className="flex flex-wrap items-center gap-3">
+                {cartas.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={handleExportHistoryCsv}
+                    className="text-xs font-semibold text-[#5C564D] dark:text-[#C7BFB2] hover:text-[#8B2635] dark:hover:text-[#E88E9B] inline-flex items-center gap-1 cursor-pointer"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    <span>{localize('Exportar Histórico', 'Export History', 'Exportar Historial')}</span>
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => onOpenCarta()}
+                  className="text-xs font-semibold text-[#8B2635] dark:text-[#E88E9B] hover:underline inline-flex items-center gap-1 cursor-pointer"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>{localize('Nova Carta de Chá', 'New Tea Menu', 'Nueva Carta')}</span>
+                </button>
+              </div>
             </div>
 
             {loading ? (
-              <div className="h-24 rounded-xl bg-[#FAF7F2] dark:bg-[#221C17] border border-[#E5DACB] dark:border-[#352C23] animate-pulse" />
+              <div
+                role="status"
+                aria-label={localize('Carregando cartas de chá do Firestore...', 'Loading tea menus from Firestore...', 'Cargando cartas de té...')}
+                className="overflow-x-auto rounded-xl border border-[#E5DACB] dark:border-[#352C23]"
+              >
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead>
+                    <tr className="bg-[#FAF7F2] dark:bg-[#221C17] border-b border-[#E5DACB] dark:border-[#352C23] text-[11px] font-bold uppercase tracking-wider text-[#6E6659] dark:text-[#A89E90]">
+                      <th className="py-2.5 px-4 whitespace-nowrap">{localize('Data', 'Date', 'Fecha')}</th>
+                      <th className="py-2.5 px-4">{localize('Nome da Carta', 'Menu Name', 'Nombre de Carta')}</th>
+                      <th className="py-2.5 px-4 whitespace-nowrap">{localize('Status da Proposta', 'Proposal Status', 'Estado')}</th>
+                      <th className="py-2.5 px-4 text-right whitespace-nowrap">{localize('Ação', 'Action', 'Acción')}</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#EDE3D5] dark:divide-[#2E251D] bg-white dark:bg-[#1A1613] animate-pulse">
+                    {[
+                      { dateW: 'w-20', titleW: 'w-44', subW: 'w-28', statusW: 'w-24', actionW: 'w-28' },
+                      { dateW: 'w-24', titleW: 'w-52', subW: 'w-32', statusW: 'w-28', actionW: 'w-28' },
+                      { dateW: 'w-20', titleW: 'w-36', subW: 'w-24', statusW: 'w-24', actionW: 'w-28' },
+                    ].map((row, idx) => (
+                      <tr key={idx}>
+                        <td className="py-3 px-4 whitespace-nowrap">
+                          <div className={`h-3.5 ${row.dateW} rounded bg-gray-200 dark:bg-neutral-800`} />
+                        </td>
+                        <td className="py-3 px-4">
+                          <div className="space-y-1.5">
+                            <div className={`h-4 ${row.titleW} max-w-full rounded bg-gray-300 dark:bg-neutral-700`} />
+                            <div className={`h-3 ${row.subW} max-w-full rounded bg-gray-200 dark:bg-neutral-800`} />
+                          </div>
+                        </td>
+                        <td className="py-3 px-4 whitespace-nowrap">
+                          <div className={`h-6 ${row.statusW} rounded-md bg-gray-200 dark:bg-neutral-800`} />
+                        </td>
+                        <td className="py-3 px-4 text-right whitespace-nowrap">
+                          <div className={`h-7 ${row.actionW} rounded-lg bg-gray-200 dark:bg-neutral-800 ml-auto`} />
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             ) : cartas.length === 0 ? (
               <div className="rounded-xl bg-[#FAF7F2] dark:bg-[#221C17] border border-[#E5DACB] dark:border-[#352C23] p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <p className="text-xs text-[#6E6659] dark:text-[#A89E90]">
@@ -1725,10 +2227,16 @@ function DashboardEstabelecimentoInner({
                           <td className="py-3 px-4 text-right whitespace-nowrap">
                             <button
                               type="button"
-                              onClick={() => onOpenCarta(carta)}
-                              className="px-3 py-1 rounded-lg bg-[#FAF7F2] dark:bg-[#221C17] border border-[#DFD2BF] dark:border-[#3A3027] hover:border-[#8B2635] text-[11px] font-semibold text-[#1E1B18] dark:text-[#FAF8F5] cursor-pointer"
+                              disabled={loadingCuratorCartaId === carta.id}
+                              onClick={() => handleOpenCartaInCurator(carta)}
+                              className="px-3 py-1 rounded-lg bg-[#FAF7F2] dark:bg-[#221C17] border border-[#DFD2BF] dark:border-[#3A3027] hover:border-[#8B2635] text-[11px] font-semibold text-[#1E1B18] dark:text-[#FAF8F5] inline-flex items-center gap-1 cursor-pointer disabled:opacity-60"
                             >
-                              {localize('Abrir', 'Open', 'Abrir')}
+                              <PencilLine className="w-3 h-3 text-[#8B2635] dark:text-[#E88E9B]" />
+                              <span>
+                                {loadingCuratorCartaId === carta.id
+                                  ? localize('Carregando...', 'Loading...', 'Cargando...')
+                                  : localize('Editar no Curador', 'Edit in Curator', 'Editar')}
+                              </span>
                             </button>
                           </td>
                         </tr>
@@ -1817,6 +2325,21 @@ function DashboardEstabelecimentoInner({
             >
               <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
               <span>{localize('Sincronizar Firestore', 'Sync Firestore', 'Sincronizar')}</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={handleExportHistoryCsv}
+              disabled={loading || cartas.length === 0}
+              title={localize(
+                'Exportar histórico de cartas de chá e status em CSV',
+                'Export tea menu history and status to CSV',
+                'Exportar historial de cartas y estado en CSV'
+              )}
+              className="px-3.5 py-2 rounded-xl border border-[#DFD2BF] dark:border-[#3A3027] bg-[#FAF7F2] dark:bg-[#221C17] hover:bg-[#F2EAE0] dark:hover:bg-[#2B241E] text-xs font-semibold text-[#1E1B18] dark:text-[#FAF8F5] inline-flex items-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <Download className="w-3.5 h-3.5 text-[#8B2635] dark:text-[#E88E9B]" />
+              <span>{localize('Exportar Histórico', 'Export History', 'Exportar Historial')}</span>
             </button>
 
             <button
@@ -1960,6 +2483,19 @@ function DashboardEstabelecimentoInner({
           <button
             type="button"
             role="tab"
+            aria-selected={activeTab === 'cartas_cha'}
+            onClick={() => setActiveTab('cartas_cha')}
+            className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap shrink-0 ${
+              activeTab === 'cartas_cha'
+                ? 'bg-[#8B2635] text-white'
+                : 'text-[#5C564D] dark:text-[#C2B8AA] hover:text-[#1E1B18] dark:hover:text-white'
+            }`}
+          >
+            {localize('Coleção cartas_cha (Tempo Real)', 'cartas_cha (Live)', 'cartas_cha (En Vivo)')}
+          </button>
+          <button
+            type="button"
+            role="tab"
             aria-selected={activeTab === 'propostas'}
             onClick={() => setActiveTab('propostas')}
             className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer tabular-nums whitespace-nowrap shrink-0 ${
@@ -1980,6 +2516,172 @@ function DashboardEstabelecimentoInner({
           )}
         </div>
       </div>
+
+      {/* ───────────────────────────────────────────────────────────────────── */}
+      {/* RECHARTS: TENDÊNCIA DE RECEITA POTENCIAL MENSAL (HISTÓRICO cartas_cha) */}
+      {/* ───────────────────────────────────────────────────────────────────── */}
+      {activeTab === 'overview' && (
+        <section
+          aria-labelledby="heading-tendencia-receita"
+          className="rounded-2xl bg-white dark:bg-[#1A1613] border border-[#E5DACB] dark:border-[#352C23] p-5 sm:p-6 space-y-4"
+        >
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 pb-3.5 border-b border-[#EDE3D5] dark:border-[#2E251D]">
+            <div>
+              <div className="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-widest text-[#2E6B34] dark:text-[#7FE08A]">
+                <TrendingUp className="w-3.5 h-3.5" />
+                <span>
+                  {localize(
+                    'Projeção Financeira · Histórico cartas_cha',
+                    'Financial Projection · cartas_cha History',
+                    'Proyección Financiera · Historial cartas_cha'
+                  )}
+                </span>
+              </div>
+              <h3
+                id="heading-tendencia-receita"
+                className="font-serif-editorial text-xl sm:text-2xl font-bold text-[#1E1B18] dark:text-[#FAF8F5] mt-0.5"
+              >
+                {localize(
+                  'Tendência de Receita Potencial Mensal',
+                  'Monthly Potential Revenue Trend',
+                  'Tendencia de Ingresos Potenciales Mensuales'
+                )}
+              </h3>
+              <p className="text-xs text-[#6E6659] dark:text-[#A89E90]">
+                {localize(
+                  `Evolução acumulada com base nas ${kpis.cartasCount} carta(s) e ${kpis.totalBlends} blends salvos (ticket médio B2B R$ 16/xícara).`,
+                  `Cumulative monthly projection from ${kpis.cartasCount} saved menu(s) and ${kpis.totalBlends} blends (B2B avg R$ 16/cup).`,
+                  `Proyección mensual acumulada de ${kpis.cartasCount} carta(s) y ${kpis.totalBlends} blends guardados.`
+                )}
+              </p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 shrink-0">
+              <div className="rounded-xl border border-[#EDE3D5] dark:border-[#322921] bg-[#FAF7F2] dark:bg-[#221C17] px-3.5 py-2.5">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-[#70675A] dark:text-[#A89E90] block">
+                  {localize('Potencial Mensal', 'Monthly Potential', 'Potencial Mensual')}
+                </span>
+                {loading ? (
+                  <div className="h-6 w-24 mt-1 rounded bg-gray-300 dark:bg-neutral-700 animate-pulse" />
+                ) : (
+                  <span className="font-serif-editorial text-lg sm:text-xl font-bold text-[#8B2635] dark:text-[#E88E9B] tabular-nums">
+                    {formatBrlCurrency(currentMonthlyPotential)}
+                  </span>
+                )}
+              </div>
+              <div className="rounded-xl border border-[#2E6B34]/25 bg-[#2E6B34]/8 dark:bg-[#2E6B34]/18 px-3.5 py-2.5">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-[#235428] dark:text-[#7FE08A] block">
+                  {localize('Margem Bruta (~89%)', 'Gross Margin (~89%)', 'Margen Bruto (~89%)')}
+                </span>
+                {loading ? (
+                  <div className="h-6 w-24 mt-1 rounded bg-gray-300 dark:bg-neutral-700 animate-pulse" />
+                ) : (
+                  <span className="font-serif-editorial text-lg sm:text-xl font-bold text-[#235428] dark:text-[#7FE08A] tabular-nums">
+                    {formatBrlCurrency(currentMonthlyGrossProfit)}
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {loading ? (
+            <div
+              role="status"
+              aria-label={localize('Carregando curva de receita potencial...', 'Loading potential revenue trend...', 'Cargando tendencia de ingresos...')}
+              className="h-60 w-full rounded-xl border border-[#EDE3D5] dark:border-[#322921] bg-[#FAF7F2]/70 dark:bg-[#221C17]/70 p-4 flex flex-col justify-between animate-pulse"
+            >
+              <div className="flex items-center justify-between">
+                <div className="h-3 w-40 rounded bg-gray-200 dark:bg-neutral-800" />
+                <div className="h-3 w-24 rounded bg-gray-200 dark:bg-neutral-800" />
+              </div>
+              <div className="flex-1 flex items-end gap-3 py-4">
+                <div className="h-10 flex-1 rounded bg-gray-200 dark:bg-neutral-800" />
+                <div className="h-16 flex-1 rounded bg-gray-200 dark:bg-neutral-800" />
+                <div className="h-24 flex-1 rounded bg-gray-300 dark:bg-neutral-700" />
+                <div className="h-28 flex-1 rounded bg-gray-200 dark:bg-neutral-800" />
+                <div className="h-36 flex-1 rounded bg-gray-300 dark:bg-neutral-700" />
+                <div className="h-40 flex-1 rounded bg-gray-300 dark:bg-neutral-700" />
+              </div>
+              <div className="flex justify-between">
+                {[1, 2, 3, 4, 5, 6].map((n) => (
+                  <div key={n} className="h-3 w-10 rounded bg-gray-200 dark:bg-neutral-800" />
+                ))}
+              </div>
+            </div>
+          ) : revenueTrend.length === 0 ? (
+            <div className="py-8 text-center rounded-xl border border-dashed border-[#DFD2BF] dark:border-[#3A3027] space-y-2">
+              <TrendingUp className="w-6 h-6 text-[#C68A36] mx-auto" />
+              <p className="text-xs text-[#6E6659] dark:text-[#A89E90] max-w-md mx-auto">
+                {localize(
+                  'Crie e salve sua primeira carta de chá para visualizar a tendência mensal de receita potencial.',
+                  'Create and save your first tea menu to visualize your monthly potential revenue trend.',
+                  'Crea y guarda tu primera carta de té para ver la tendencia mensual de ingresos potenciales.'
+                )}
+              </p>
+            </div>
+          ) : (
+            <div className="h-64 w-full min-w-0">
+              <ResponsiveContainer width="100%" height={250}>
+                <LineChart
+                  data={revenueTrend}
+                  margin={{ top: 10, right: 16, left: 4, bottom: 4 }}
+                >
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    stroke="rgba(198, 138, 54, 0.22)"
+                    vertical={false}
+                  />
+                  <XAxis
+                    dataKey="monthLabel"
+                    tick={{ fontSize: 11, fill: '#70675A' }}
+                    axisLine={{ stroke: '#DFD2BF' }}
+                    tickLine={false}
+                  />
+                  <YAxis
+                    tickFormatter={(val) => formatBrlAxis(Number(val) || 0)}
+                    tick={{ fontSize: 11, fill: '#70675A' }}
+                    axisLine={false}
+                    tickLine={false}
+                    width={68}
+                  />
+                  <Tooltip
+                    content={({ active, payload }) => {
+                      if (!active || !payload || payload.length === 0) return null;
+                      const pt = payload[0]?.payload as MonthlyRevenueTrendPoint | undefined;
+                      if (!pt) return null;
+                      return (
+                        <div className="rounded-xl border border-[#E5DACB] dark:border-[#3A3027] bg-white dark:bg-[#1A1613] px-3.5 py-2.5 shadow-md text-xs space-y-1">
+                          <div className="font-bold uppercase tracking-wider text-[10px] text-[#C68A36]">
+                            {pt.monthLabel}
+                          </div>
+                          <div className="font-serif-editorial text-base font-bold text-[#8B2635] dark:text-[#E88E9B] tabular-nums">
+                            {formatBrlCurrency(pt.receitaPotencialMensal)} / {localize('mês', 'mo', 'mes')}
+                          </div>
+                          <div className="text-[11px] text-[#235428] dark:text-[#7FE08A] font-semibold tabular-nums">
+                            {localize('Lucro Bruto', 'Gross Profit', 'Beneficio Bruto')}: {formatBrlCurrency(pt.lucroBrutoEstimado)}
+                          </div>
+                          <div className="text-[11px] text-[#6E6659] dark:text-[#A89E90] pt-0.5 border-t border-[#EDE3D5] dark:border-[#2E251D] tabular-nums">
+                            {pt.cartasAcumuladas} {pt.cartasAcumuladas === 1 ? localize('carta ativa', 'active menu', 'carta activa') : localize('cartas ativas', 'active menus', 'cartas activas')} · {pt.blendsAcumulados} blends
+                          </div>
+                        </div>
+                      );
+                    }}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="receitaPotencialMensal"
+                    name={localize('Receita Potencial Mensal', 'Monthly Potential Revenue', 'Ingresos Potenciales Mensuales')}
+                    stroke="#8B2635"
+                    strokeWidth={2.75}
+                    dot={{ r: 4, fill: '#8B2635', stroke: '#FAF7F2', strokeWidth: 2 }}
+                    activeDot={{ r: 6, fill: '#C68A36', stroke: '#FFFFFF', strokeWidth: 2 }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+        </section>
+      )}
 
       {/* ───────────────────────────────────────────────────────────────────── */}
       {/* SECTION 1: HISTÓRICO DE CARTAS DE CHÁ CRIADAS (DATA · NOME · STATUS) */}
@@ -2034,17 +2736,70 @@ function DashboardEstabelecimentoInner({
                   ))}
                 </select>
               )}
+
+              <button
+                type="button"
+                onClick={handleExportHistoryCsv}
+                disabled={loading || cartas.length === 0}
+                className="px-3 py-1.5 rounded-xl border border-[#DFD2BF] dark:border-[#3A3027] bg-[#FAF7F2] dark:bg-[#221C17] hover:bg-[#F2EAE0] dark:hover:bg-[#2C241E] text-xs font-semibold text-[#1E1B18] dark:text-[#FAF8F5] inline-flex items-center gap-1.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Download className="w-3.5 h-3.5 text-[#8B2635] dark:text-[#E88E9B]" />
+                <span>{localize('Exportar Histórico', 'Export History', 'Exportar Historial')}</span>
+              </button>
             </div>
           </div>
 
           {loading ? (
-            <div className="space-y-3 pt-5">
-              {[1, 2, 3].map((idx) => (
-                <div
-                  key={idx}
-                  className="h-24 rounded-xl bg-[#FAF7F2] dark:bg-[#231D18] border border-[#EDE3D5] dark:border-[#322921] animate-pulse p-5"
-                />
-              ))}
+            <div
+              role="status"
+              aria-label={localize('Carregando cartas de chá do Firestore...', 'Loading tea menus from Firestore...', 'Cargando cartas de té...')}
+              className="pt-5 space-y-3"
+            >
+              <div className="hidden md:grid md:grid-cols-12 gap-4 px-4 py-2 text-[11px] font-bold uppercase tracking-wider text-[#70675A] dark:text-[#A89E90] border-b border-[#EDE3D5] dark:border-[#2E251D]">
+                <div className="col-span-2">{localize('Data', 'Date', 'Fecha')}</div>
+                <div className="col-span-4">{localize('Nome da Carta', 'Menu Name', 'Nombre de Carta')}</div>
+                <div className="col-span-3">{localize('Status da Proposta', 'Proposal Status', 'Estado de Propuesta')}</div>
+                <div className="col-span-3 text-right">{localize('Detalhes & Ações', 'Details & Actions', 'Detalles')}</div>
+              </div>
+
+              <div className="space-y-3 animate-pulse">
+                {[
+                  { dateW: 'w-20', titleW: 'w-48', subW: 'w-36', statusW: 'w-24' },
+                  { dateW: 'w-24', titleW: 'w-56', subW: 'w-44', statusW: 'w-28' },
+                  { dateW: 'w-20', titleW: 'w-40', subW: 'w-32', statusW: 'w-24' },
+                  { dateW: 'w-24', titleW: 'w-52', subW: 'w-40', statusW: 'w-28' },
+                ].map((row, idx) => (
+                  <article
+                    key={idx}
+                    className="rounded-xl border border-[#E5DACB] dark:border-[#352C23] bg-[#FAF7F2]/60 dark:bg-[#211C17] p-4 sm:p-5"
+                  >
+                    <div className="grid grid-cols-1 md:grid-cols-12 gap-3.5 items-start md:items-center">
+                      <div className="md:col-span-2 space-y-1.5">
+                        <div className="flex items-center gap-1.5">
+                          <div className="w-3.5 h-3.5 rounded bg-gray-300 dark:bg-neutral-700 shrink-0" />
+                          <div className={`h-3.5 ${row.dateW} rounded bg-gray-200 dark:bg-neutral-800`} />
+                        </div>
+                        <div className="h-3 w-16 rounded bg-gray-200 dark:bg-neutral-800" />
+                      </div>
+
+                      <div className="md:col-span-4 space-y-2">
+                        <div className={`h-5 ${row.titleW} max-w-full rounded bg-gray-300 dark:bg-neutral-700`} />
+                        <div className={`h-3.5 ${row.subW} max-w-full rounded bg-gray-200 dark:bg-neutral-800`} />
+                      </div>
+
+                      <div className="md:col-span-3">
+                        <div className={`h-6 ${row.statusW} rounded-md bg-gray-200 dark:bg-neutral-800`} />
+                      </div>
+
+                      <div className="md:col-span-3 flex flex-wrap items-center justify-start md:justify-end gap-1.5">
+                        <div className="h-7 w-24 rounded-lg bg-gray-300 dark:bg-neutral-700" />
+                        <div className="h-7 w-20 rounded-lg bg-gray-200 dark:bg-neutral-800" />
+                        <div className="h-7 w-7 rounded-lg bg-gray-200 dark:bg-neutral-800" />
+                      </div>
+                    </div>
+                  </article>
+                ))}
+              </div>
             </div>
           ) : filteredCartas.length === 0 ? (
             <div className="py-10 text-center space-y-4">
@@ -2238,11 +2993,16 @@ function DashboardEstabelecimentoInner({
                       <div className="md:col-span-3 flex flex-wrap md:justify-end items-center gap-2">
                         <button
                           type="button"
-                          onClick={() => onOpenCarta(carta)}
-                          className="px-3 py-1.5 rounded-lg bg-[#8B2635] hover:bg-[#721F2B] text-white text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap shrink-0"
+                          disabled={loadingCuratorCartaId === carta.id}
+                          onClick={() => handleOpenCartaInCurator(carta)}
+                          className="px-3 py-1.5 rounded-lg bg-[#8B2635] hover:bg-[#721F2B] text-white text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-60 whitespace-nowrap shrink-0"
                         >
-                          <ExternalLink className="w-3.5 h-3.5" />
-                          <span>{localize('Abrir Carta', 'Open Menu', 'Abrir Carta')}</span>
+                          <PencilLine className="w-3.5 h-3.5" />
+                          <span>
+                            {loadingCuratorCartaId === carta.id
+                              ? localize('Carregando...', 'Loading...', 'Cargando...')
+                              : localize('Editar no Curador', 'Edit in Curator', 'Editar en Curador')}
+                          </span>
                         </button>
 
                         <button
@@ -2493,7 +3253,7 @@ function DashboardEstabelecimentoInner({
                                 className="px-3 py-1.5 rounded-lg border border-[#DFD2BF] dark:border-[#3A3027] bg-white dark:bg-[#1A1613] hover:bg-[#F5EFE4] dark:hover:bg-[#29221C] text-xs font-semibold text-[#1E1B18] dark:text-[#FAF8F5] inline-flex items-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap shrink-0"
                               >
                                 <PencilLine className="w-3.5 h-3.5 text-[#8B2635] dark:text-[#E88E9B]" />
-                                <span>{localize('Editar', 'Edit', 'Editar')}</span>
+                                <span>{localize('Edição Rápida', 'Quick Edit', 'Edición Rápida')}</span>
                               </button>
                             )}
 
@@ -2594,6 +3354,18 @@ function DashboardEstabelecimentoInner({
               </div>
 
               <select
+                value={proposalStatusFilter}
+                onChange={(e) => setProposalStatusFilter(e.target.value as 'all' | LeadStatus)}
+                aria-label={localize('Filtrar por status da proposta', 'Filter by proposal status', 'Filtrar por estado de propuesta')}
+                className="px-3 py-1.5 rounded-xl border border-[#DFD2BF] dark:border-[#3A3027] bg-[#FAF7F2] dark:bg-[#221C17] text-xs font-medium text-[#1E1B18] dark:text-[#FAF8F5] focus:outline-none focus:border-[#8B2635] cursor-pointer"
+              >
+                <option value="all">{localize('Todos os status', 'All statuses', 'Todos los estados')} ({proposals.length})</option>
+                <option value="novo">{localize('Pendente', 'Pending', 'Pendiente')} ({kpis.pendingCount})</option>
+                <option value="em_atendimento">{localize('Em Análise', 'Under Review', 'En Análisis')} ({kpis.inReviewCount})</option>
+                <option value="concluido">{localize('Aprovada', 'Approved', 'Aprobada')} ({kpis.approvedCount})</option>
+              </select>
+
+              <select
                 value={proposalTypeFilter}
                 onChange={(e) => setProposalTypeFilter(e.target.value as any)}
                 aria-label={localize('Filtrar por tipo', 'Filter by type', 'Filtrar por tipo')}
@@ -2611,47 +3383,105 @@ function DashboardEstabelecimentoInner({
 
           {/* Interactive Filter Controls (Todas | Pendente | Em Análise | Aprovada) */}
           <div className="pt-4 flex flex-wrap items-center justify-between gap-3">
-            <div className="inline-flex flex-wrap items-center gap-1 p-1 rounded-xl bg-[#FAF7F2] dark:bg-[#221C17] border border-[#E5DACB] dark:border-[#352C23]">
-              {(
-                [
-                  { id: 'all', label: localize('Todas', 'All', 'Todas'), count: proposals.length },
-                  { id: 'novo', label: localize('Pendente', 'Pending', 'Pendiente'), count: kpis.pendingCount },
-                  { id: 'em_atendimento', label: localize('Em Análise', 'Under Review', 'En Análisis'), count: kpis.inReviewCount },
-                  { id: 'concluido', label: localize('Aprovada', 'Approved', 'Aprobada'), count: kpis.approvedCount },
-                ] as const
-              ).map((tab) => (
+            <div className="flex flex-wrap items-center gap-2.5">
+              <div
+                role="group"
+                aria-label={localize('Filtro de status das propostas comerciais', 'Commercial proposal status filter', 'Filtro de estado')}
+                className="inline-flex flex-wrap items-center gap-1 p-1 rounded-xl bg-[#FAF7F2] dark:bg-[#221C17] border border-[#E5DACB] dark:border-[#352C23]"
+              >
+                {(
+                  [
+                    { id: 'all', label: localize('Todas', 'All', 'Todas'), count: proposals.length },
+                    { id: 'novo', label: localize('Pendente', 'Pending', 'Pendiente'), count: kpis.pendingCount },
+                    { id: 'em_atendimento', label: localize('Em Análise', 'Under Review', 'En Análisis'), count: kpis.inReviewCount },
+                    { id: 'concluido', label: localize('Aprovada', 'Approved', 'Aprobada'), count: kpis.approvedCount },
+                  ] as const
+                ).map((tab) => (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    aria-pressed={proposalStatusFilter === tab.id}
+                    onClick={() => setProposalStatusFilter(tab.id)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer tabular-nums whitespace-nowrap shrink-0 ${
+                      proposalStatusFilter === tab.id
+                        ? 'bg-[#8B2635] text-white'
+                        : 'text-[#5C564D] dark:text-[#C2B8AA] hover:text-[#1E1B18] dark:hover:text-white'
+                    }`}
+                  >
+                    {tab.label} ({loading ? '…' : tab.count})
+                  </button>
+                ))}
+              </div>
+
+              {(proposalStatusFilter !== 'all' || proposalTypeFilter !== 'all' || proposalSearch.trim() !== '') && (
                 <button
-                  key={tab.id}
                   type="button"
-                  onClick={() => setProposalStatusFilter(tab.id)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer tabular-nums whitespace-nowrap shrink-0 ${
-                    proposalStatusFilter === tab.id
-                      ? 'bg-[#8B2635] text-white'
-                      : 'text-[#5C564D] dark:text-[#C2B8AA] hover:text-[#1E1B18] dark:hover:text-white'
-                  }`}
+                  onClick={() => {
+                    setProposalSearch('');
+                    setProposalStatusFilter('all');
+                    setProposalTypeFilter('all');
+                  }}
+                  className="px-2.5 py-1.5 rounded-xl border border-[#8B2635]/30 bg-[#8B2635]/8 text-xs font-semibold text-[#8B2635] dark:text-[#E88E9B] cursor-pointer whitespace-nowrap"
                 >
-                  {tab.label} ({tab.count})
+                  {localize('Limpar filtros', 'Clear filters', 'Limpiar filtros')}
                 </button>
-              ))}
+              )}
             </div>
 
-            <button
-              type="button"
-              onClick={() => onOpenLeadModal('proposta')}
-              className="px-3 py-1.5 rounded-xl border border-[#C68A36] text-xs font-semibold text-[#8B2635] dark:text-[#F2C374] hover:bg-[#FAF7F2] dark:hover:bg-[#231D18] inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              <span>{localize('Nova Proposta B2B', 'New B2B Proposal', 'Nueva Propuesta')}</span>
-            </button>
+            <div className="flex items-center gap-3">
+              <span className="text-[11px] font-medium text-[#6E6659] dark:text-[#A89E90] tabular-nums hidden sm:inline">
+                {loading
+                  ? localize('Sincronizando Firestore...', 'Syncing Firestore...', 'Sincronizando Firestore...')
+                  : localize(
+                      `Exibindo ${filteredProposals.length} de ${proposals.length}`,
+                      `Showing ${filteredProposals.length} of ${proposals.length}`,
+                      `Mostrando ${filteredProposals.length} de ${proposals.length}`
+                    )}
+              </span>
+
+              <button
+                type="button"
+                onClick={() => onOpenLeadModal('proposta')}
+                className="px-3 py-1.5 rounded-xl border border-[#C68A36] text-xs font-semibold text-[#8B2635] dark:text-[#F2C374] hover:bg-[#FAF7F2] dark:hover:bg-[#231D18] inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>{localize('Nova Proposta B2B', 'New B2B Proposal', 'Nueva Propuesta')}</span>
+              </button>
+            </div>
           </div>
 
           {loading ? (
-            <div className="space-y-3 pt-5">
-              {[1, 2].map((idx) => (
+            <div
+              role="status"
+              aria-label={localize('Carregando propostas comerciais do Firestore...', 'Loading commercial proposals from Firestore...', 'Cargando propuestas comerciales...')}
+              className="space-y-4 pt-5 animate-pulse"
+            >
+              {[1, 2, 3].map((idx) => (
                 <div
                   key={idx}
-                  className="h-32 rounded-xl bg-[#FAF7F2] dark:bg-[#231D18] border border-[#EDE3D5] dark:border-[#322921] animate-pulse p-5"
-                />
+                  className="rounded-xl border border-[#EDE3D5] dark:border-[#322921] bg-[#FAF7F2]/70 dark:bg-[#231D18] p-4 sm:p-5 space-y-4"
+                >
+                  <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                    <div className="space-y-2 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <div className="h-3 w-24 rounded bg-[#E5DACB] dark:bg-[#352C23]" />
+                        <div className="h-3 w-20 rounded bg-[#EDE3D5] dark:bg-[#2E251D]" />
+                        <div className="h-3 w-28 rounded bg-[#EDE3D5] dark:bg-[#2E251D]" />
+                      </div>
+                      <div className="h-5 w-56 rounded bg-[#E5DACB] dark:bg-[#352C23]" />
+                      <div className="h-3.5 w-72 max-w-full rounded bg-[#EDE3D5] dark:bg-[#2E251D]" />
+                    </div>
+                    <div className="h-6 w-24 rounded-md bg-[#E5DACB] dark:bg-[#352C23] shrink-0" />
+                  </div>
+                  <div className="h-10 w-full rounded-lg bg-[#EDE3D5]/70 dark:bg-[#2E251D]/80" />
+                  <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+                    <div className="flex items-center gap-2">
+                      <div className="h-7 w-28 rounded-lg bg-[#EDE3D5] dark:bg-[#2E251D]" />
+                      <div className="h-7 w-24 rounded-lg bg-[#EDE3D5] dark:bg-[#2E251D]" />
+                    </div>
+                    <div className="h-7 w-20 rounded-lg bg-[#E5DACB] dark:bg-[#352C23]" />
+                  </div>
+                </div>
               ))}
             </div>
           ) : filteredProposals.length === 0 ? (
@@ -2984,6 +3814,17 @@ function DashboardEstabelecimentoInner({
             </div>
           )}
         </section>
+      )}
+
+      {activeTab === 'cartas_cha' && (
+        <CartasChaFirestoreSection
+          variant="embedded"
+          hideHeader={true}
+          onOpenCarta={handleOpenCartaChaDocInCurator}
+          onOpenLeadModal={(interestType, recommendedTeaName) =>
+            onOpenLeadModal((interestType as LeadInterestType) || 'proposta', recommendedTeaName)
+          }
+        />
       )}
 
       {previewCarta && (() => {

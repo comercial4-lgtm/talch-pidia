@@ -44,9 +44,32 @@ import {
   Volume2,
   VolumeX,
   Globe,
-  Share2
+  Share2,
+  LayoutDashboard,
+  LogIn,
+  LogOut
 } from 'lucide-react';
+import {
+  GoogleAuthProvider,
+  onAuthStateChanged,
+  signInWithPopup,
+  signOut,
+  type User as FirebaseUser,
+} from 'firebase/auth';
+import {
+  doc,
+  serverTimestamp,
+  updateDoc,
+} from 'firebase/firestore';
 import FlavorMap from './FlavorMap';
+import DashboardEstabelecimento, {
+  auth as firebaseAuth,
+  CARTA_CHA_CONSTRAINTS,
+  db,
+  handleFirestoreError,
+  OperationType,
+  type HydratedCartaChaPayload,
+} from './components/DashboardEstabelecimento';
 
 // Contact & Lead Information Types
 interface LeadForm {
@@ -108,7 +131,7 @@ export function FileUploader({
     if (!file) return;
     const allowed = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp', 'image/svg+xml'];
     if (!allowed.includes(file.type) && !file.name.match(/\.(png|jpe?g|webp|svg)$/i)) {
-      alert('Formato de arquivo inválido. Por favor, selecione uma imagem PNG ou JPG.');
+      console.warn('Formato de arquivo inválido. Selecione uma imagem PNG ou JPG.');
       return;
     }
     const sizeKb = Math.round(file.size / 1024);
@@ -261,7 +284,7 @@ export function FileUploader({
 
 export default function App() {
   // Navigation & UI State
-  const [activeTab, setActiveTab] = useState<'curador' | 'curadoria' | 'carta' | 'infusao' | 'catalogo' | 'mapa_sabores' | 'calculadora' | 'consultoria'>('curador');
+  const [activeTab, setActiveTab] = useState<'curador' | 'curadoria' | 'carta' | 'infusao' | 'catalogo' | 'mapa_sabores' | 'calculadora' | 'consultoria' | 'dashboard'>('curador');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [contactModalOpen, setContactModalOpen] = useState(false);
@@ -271,6 +294,48 @@ export default function App() {
   const [language, setLanguage] = useState<'pt' | 'en' | 'es'>('pt');
   const [themeMode, setThemeMode] = useState<'system' | 'light' | 'dark'>('system');
   const [audioMuted, setAudioMuted] = useState(true);
+
+  // Firebase Auth & Auth Modal State
+  const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(() => firebaseAuth.currentUser);
+  const [authModalOpen, setAuthModalOpen] = useState(false);
+  const [authBusy, setAuthBusy] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
+  const [pushBannerOpen, setPushBannerOpen] = useState(false);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(firebaseAuth, (user) => {
+      setFirebaseUser(user);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const handleGoogleSignIn = async () => {
+    setAuthBusy(true);
+    setAuthError(null);
+    try {
+      const provider = new GoogleAuthProvider();
+      await signInWithPopup(firebaseAuth, provider);
+    } catch (err: any) {
+      setAuthError(err?.message || 'Não foi possível concluir o login com Google.');
+    } finally {
+      setAuthBusy(false);
+    }
+  };
+
+  const handleFirebaseSignOut = async () => {
+    setAuthBusy(true);
+    setAuthError(null);
+    try {
+      await signOut(firebaseAuth);
+      if (activeTab === 'dashboard') {
+        setActiveTab('curador');
+      }
+    } catch (err: any) {
+      setAuthError(err?.message || 'Erro ao encerrar sessão.');
+    } finally {
+      setAuthBusy(false);
+    }
+  };
 
   // Profit Simulator State
   const [cupSalePrice, setCupSalePrice] = useState(16);
@@ -296,6 +361,167 @@ export default function App() {
     interest: 'carta_completa',
     notes: '',
   });
+
+  // Curator Editing State (Hydrated from Firestore cartas_cha)
+  const [editingCarta, setEditingCarta] = useState<HydratedCartaChaPayload | null>(null);
+  const [curatorDraft, setCuratorDraft] = useState({
+    nome: '',
+    estabelecimento: '',
+    segmento: 'restaurante',
+    formatoServico: '',
+    blendsText: '',
+    observacoes: '',
+  });
+  const [savingCuratorEdit, setSavingCuratorEdit] = useState(false);
+  const [curatorFeedback, setCuratorFeedback] = useState<{
+    type: 'success' | 'error';
+    message: string;
+  } | null>(null);
+
+  const handleLoadCartaInCurator = (carta?: HydratedCartaChaPayload) => {
+    if (!carta) {
+      setActiveTab('curadoria');
+      document.getElementById('secao-conteudo')?.scrollIntoView({ behavior: 'smooth' });
+      return;
+    }
+
+    const blendsList =
+      Array.isArray(carta.blends) && carta.blends.length > 0
+        ? carta.blends
+        : Array.isArray(carta.customBlendIds)
+        ? carta.customBlendIds
+        : [];
+
+    const nomeCarta = carta.nome || carta.cartaTitle || carta.name || '';
+    const estabelecimentoCarta = carta.estabelecimento || carta.establishmentName || '';
+    const segmentoCarta = carta.segmento || carta.businessType || 'restaurante';
+    const formatoCarta = carta.formatoServico || carta.serviceFormat || '';
+    const obsCarta = carta.observacoes || carta.menuHighlights || '';
+
+    setEditingCarta(carta);
+    setCuratorDraft({
+      nome: nomeCarta,
+      estabelecimento: estabelecimentoCarta,
+      segmento: segmentoCarta,
+      formatoServico: formatoCarta,
+      blendsText: blendsList.join(', '),
+      observacoes: obsCarta,
+    });
+    setLeadForm((prev) => ({
+      ...prev,
+      company: estabelecimentoCarta || prev.company,
+      segment: segmentoCarta || prev.segment,
+      notes: obsCarta || prev.notes,
+    }));
+    setSearchQuery('');
+    setSelectedCategory('todos');
+    setCuratorFeedback({
+      type: 'success',
+      message: `Carta "${nomeCarta || carta.id}" carregada do Firestore para edição no Curador.`,
+    });
+    setActiveTab('curadoria');
+    document.getElementById('secao-conteudo')?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  const handleToggleBlendInCuratorDraft = (blendName: string) => {
+    const current = curatorDraft.blendsText
+      .split(/[,\n]+/)
+      .map((item) => item.trim())
+      .filter(Boolean);
+    const exists = current.some((b) => b.toLowerCase() === blendName.toLowerCase());
+    const next = exists
+      ? current.filter((b) => b.toLowerCase() !== blendName.toLowerCase())
+      : [...current, blendName].slice(0, CARTA_CHA_CONSTRAINTS.MAX_BLENDS);
+    setCuratorDraft((prev) => ({ ...prev, blendsText: next.join(', ') }));
+  };
+
+  const handleSaveCuratorEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingCarta) return;
+    if (!firebaseUser) {
+      setCuratorFeedback({
+        type: 'error',
+        message: 'Faça login com sua conta Google antes de salvar alterações no Firestore.',
+      });
+      return;
+    }
+
+    const nomeSanitized = curatorDraft.nome.trim().slice(0, CARTA_CHA_CONSTRAINTS.MAX_NOME_LEN);
+    if (!nomeSanitized) {
+      setCuratorFeedback({
+        type: 'error',
+        message: 'Informe o nome da carta de chá.',
+      });
+      return;
+    }
+
+    const isAdminUser = (firebaseUser.email || '').toLowerCase() === 'comercial4@talcha.com.br';
+    if (editingCarta.statusProposta === 'aprovada' && !isAdminUser) {
+      setCuratorFeedback({
+        type: 'error',
+        message: 'Propostas com status Aprovada não podem ser editadas diretamente pelo parceiro.',
+      });
+      return;
+    }
+
+    const blendsSanitized = curatorDraft.blendsText
+      .split(/[,\n]+/)
+      .map((item) => item.trim().slice(0, CARTA_CHA_CONSTRAINTS.MAX_BLEND_NAME_LEN))
+      .filter(Boolean)
+      .slice(0, CARTA_CHA_CONSTRAINTS.MAX_BLENDS);
+
+    const payload = {
+      nome: nomeSanitized,
+      estabelecimento: curatorDraft.estabelecimento
+        .trim()
+        .slice(0, CARTA_CHA_CONSTRAINTS.MAX_ESTABELECIMENTO_LEN),
+      segmento: (curatorDraft.segmento.trim() || 'restaurante').slice(
+        0,
+        CARTA_CHA_CONSTRAINTS.MAX_SEGMENTO_LEN
+      ),
+      formatoServico: curatorDraft.formatoServico
+        .trim()
+        .slice(0, CARTA_CHA_CONSTRAINTS.MAX_FORMATO_LEN),
+      itensCount: Math.max(1, blendsSanitized.length || editingCarta.itensCount || 1),
+      blends: blendsSanitized,
+      observacoes: curatorDraft.observacoes.trim().slice(0, CARTA_CHA_CONSTRAINTS.MAX_OBS_LEN),
+      updatedAt: serverTimestamp(),
+    };
+
+    setSavingCuratorEdit(true);
+    setCuratorFeedback(null);
+    const docPath = `cartas_cha/${editingCarta.id}`;
+
+    try {
+      await updateDoc(doc(db, 'cartas_cha', editingCarta.id), payload);
+      setEditingCarta((prev) => (prev ? { ...prev, ...payload, updatedAt: new Date() } : prev));
+      setLeadForm((prev) => ({
+        ...prev,
+        company: payload.estabelecimento || prev.company,
+        segment: payload.segmento || prev.segment,
+        notes: payload.observacoes || prev.notes,
+      }));
+      window.dispatchEvent(new Event('talcha_dashboard_refresh'));
+      setCuratorFeedback({
+        type: 'success',
+        message: 'Alterações salvas com sucesso no Firestore (cartas_cha).',
+      });
+    } catch (err) {
+      try {
+        handleFirestoreError(err, OperationType.UPDATE, docPath);
+      } catch (loggedErr: any) {
+        setCuratorFeedback({
+          type: 'error',
+          message:
+            loggedErr?.message?.includes('permission') || String(err).includes('permission')
+              ? 'Sem permissão para atualizar esta carta no Firestore (verifique seu e-mail verificado ou status da proposta).'
+              : 'Não foi possível salvar as alterações no Firestore. Tente novamente.',
+        });
+      }
+    } finally {
+      setSavingCuratorEdit(false);
+    }
+  };
 
   // Track window scroll for elevated navbar shadow
   useEffect(() => {
@@ -592,6 +818,58 @@ export default function App() {
       doc.setFont('helvetica', 'bold');
       doc.text('Página 1 de 1', 196, 289.5, { align: 'right' });
 
+      // Subtle Diagonal Full-Page Watermark ('Talchá B2B Oficial')
+      const drawOfficialWatermark = () => {
+        const pageWidth = doc.internal.pageSize.getWidth();
+        const pageHeight = doc.internal.pageSize.getHeight();
+        const pageCount =
+          typeof doc.getNumberOfPages === 'function'
+            ? doc.getNumberOfPages()
+            : 1;
+        const anyDoc = doc as unknown as {
+          GState?: new (params: { opacity: number }) => unknown;
+          setGState?: (state: unknown) => void;
+          saveGraphicsState?: () => void;
+          restoreGraphicsState?: () => void;
+        };
+        const hasGState =
+          typeof anyDoc.GState === 'function' && typeof anyDoc.setGState === 'function';
+
+        for (let pg = 1; pg <= pageCount; pg += 1) {
+          doc.setPage(pg);
+          if (typeof anyDoc.saveGraphicsState === 'function') {
+            anyDoc.saveGraphicsState();
+          }
+          if (hasGState && anyDoc.GState && anyDoc.setGState) {
+            anyDoc.setGState(new anyDoc.GState({ opacity: 0.055 }));
+            doc.setTextColor(139, 38, 53);
+          } else {
+            doc.setTextColor(232, 224, 214);
+          }
+
+          doc.setFont('times', 'bold');
+          doc.setFontSize(22);
+
+          const stepX = 76;
+          const stepY = 58;
+          for (let row = 0, wy = 24; wy < pageHeight + 25; row += 1, wy += stepY) {
+            const xShift = row % 2 === 0 ? 0 : stepX * 0.5;
+            for (let wx = -15 + xShift; wx < pageWidth + 30; wx += stepX) {
+              doc.text('Talchá B2B Oficial', wx, wy, {
+                angle: 35,
+                align: 'center',
+              });
+            }
+          }
+
+          if (typeof anyDoc.restoreGraphicsState === 'function') {
+            anyDoc.restoreGraphicsState();
+          }
+        }
+      };
+
+      drawOfficialWatermark();
+
       const fileName = `Talcha_Carta_de_Chas_${venueName.replace(/[^a-zA-Z0-9_-]/g, '_')}.pdf`;
       doc.save(fileName);
     } catch (err) {
@@ -729,6 +1007,28 @@ export default function App() {
                 </span>
               </button>
 
+              {firebaseUser && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveTab('dashboard');
+                    document.getElementById('secao-conteudo')?.scrollIntoView({ behavior: 'smooth' });
+                  }}
+                  className={`px-2.5 xl:px-3 py-1.5 rounded-full text-xs font-medium transition-all min-h-[34px] flex items-center shrink-0 cursor-pointer ${
+                    activeTab === 'dashboard'
+                      ? 'bg-white dark:bg-[#2B2620] text-[#8B2635] dark:text-[#F3D78E] shadow-xs font-semibold'
+                      : 'text-[#5C564D] dark:text-[#A8A095] hover:text-[#1E1B18] dark:hover:text-white'
+                  }`}
+                  id="nav-dashboard"
+                >
+                  <span className="flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#2E6B34] dark:bg-[#6FD47B] shrink-0" />
+                    <LayoutDashboard className="w-3.5 h-3.5 shrink-0 text-[#8B2635] dark:text-[#F3D78E]" />
+                    <span className="whitespace-nowrap">Dashboard</span>
+                  </span>
+                </button>
+              )}
+
               {/* 'Mais' Dropdown */}
               <div className="relative">
                 <button
@@ -821,17 +1121,32 @@ export default function App() {
                       <span>WhatsApp B2B Oficial</span>
                     </a>
 
+                    {firebaseUser && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setMaisOpen(false);
+                          setActiveTab('dashboard');
+                          document.getElementById('secao-conteudo')?.scrollIntoView({ behavior: 'smooth' });
+                        }}
+                        className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs text-[#8B2635] dark:text-[#F3D78E] hover:bg-black/5 dark:hover:bg-white/5 transition-colors cursor-pointer text-left font-semibold"
+                      >
+                        <LayoutDashboard className="w-4 h-4 shrink-0" />
+                        <span>Dashboard do Estabelecimento</span>
+                      </button>
+                    )}
+
                     <button
                       type="button"
                       onClick={() => {
                         setMaisOpen(false);
-                        setContactSubmitted(false);
-                        setContactModalOpen(true);
+                        setAuthError(null);
+                        setAuthModalOpen(true);
                       }}
                       className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs text-[#1E1B18] dark:text-[#FAF8F5] hover:bg-black/5 dark:hover:bg-white/5 transition-colors cursor-pointer text-left font-medium"
                     >
                       <User className="w-4 h-4 shrink-0 text-[#2E6B34] dark:text-[#6FD47B]" />
-                      <span>Acesso B2B (Google / Apple)</span>
+                      <span>{firebaseUser ? `Conta: ${firebaseUser.displayName || firebaseUser.email}` : 'Acesso B2B (Google Auth)'}</span>
                     </button>
                   </div>
                 )}
@@ -840,19 +1155,25 @@ export default function App() {
 
             {/* 3. RIGHT SIDE CONTROLS & CTA */}
             <div className="flex items-center gap-1.5 xl:gap-2 shrink-0">
-              {/* Entrar Button */}
+              {/* Entrar / Conta Button */}
               <button
                 type="button"
                 onClick={() => {
-                  setContactSubmitted(false);
-                  setContactModalOpen(true);
+                  setAuthError(null);
+                  setAuthModalOpen(true);
                 }}
-                className="hidden xl:flex items-center gap-1.5 px-2.5 py-1.5 rounded-full border shadow-2xs transition-all shrink-0 text-xs font-semibold min-h-[34px] cursor-pointer border-[#D9C4A2] dark:border-[#4A3B28] bg-[#FAF5EB] dark:bg-[#251E16] text-[#7A5B2E] dark:text-[#E0BC75] hover:bg-[#F4ECE0] dark:hover:bg-[#30261C]"
-                title="Acesso B2B Seguro (Google / Apple)"
+                className={`hidden xl:flex items-center gap-1.5 px-2.5 py-1.5 rounded-full border shadow-2xs transition-all shrink-0 text-xs font-semibold min-h-[34px] cursor-pointer ${
+                  firebaseUser
+                    ? 'border-[#2E6B34]/40 bg-[#EAF3EA] dark:bg-[#1A2D1C] text-[#2E6B34] dark:text-[#6FD47B]'
+                    : 'border-[#D9C4A2] dark:border-[#4A3B28] bg-[#FAF5EB] dark:bg-[#251E16] text-[#7A5B2E] dark:text-[#E0BC75] hover:bg-[#F4ECE0] dark:hover:bg-[#30261C]'
+                }`}
+                title={firebaseUser ? `${firebaseUser.email} · Abrir conta e Dashboard` : 'Acesso B2B Seguro (Google Auth)'}
                 id="header-auth-btn"
               >
                 <User className="w-3.5 h-3.5 shrink-0" />
-                <span className="whitespace-nowrap max-w-[80px] truncate">Entrar</span>
+                <span className="whitespace-nowrap max-w-[90px] truncate">
+                  {firebaseUser ? (firebaseUser.displayName?.split(' ')[0] || 'Minha Conta') : 'Entrar'}
+                </span>
               </button>
 
               {/* Language Selector */}
@@ -892,7 +1213,7 @@ export default function App() {
               {/* Push Notification Bell */}
               <button
                 type="button"
-                onClick={() => alert('Alertas B2B: Notificações ativas sobre estoques e lançamentos de safras exclusivas.')}
+                onClick={() => setPushBannerOpen((prev) => !prev)}
                 className="hidden sm:flex relative min-w-[34px] min-h-[34px] p-2 rounded-lg border border-[#DDD5C7] dark:border-[#38322A] bg-white/80 dark:bg-[#221E1A] text-[#4A453E] dark:text-[#D4CCC0] hover:text-[#1E1B18] dark:hover:text-white hover:bg-white dark:hover:bg-[#2C2722] shadow-2xs transition-all shrink-0 items-center justify-center cursor-pointer"
                 title="Alertas Push de Estoque & Lançamentos"
                 id="header-notification-btn"
@@ -1093,10 +1414,44 @@ export default function App() {
                   <span className="text-xs text-[#706B63] dark:text-[#A8A095]">Rituais Vapt Vupt e capacitação de brigada</span>
                 </div>
               </button>
+              {firebaseUser && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveTab('dashboard');
+                    setMobileMenuOpen(false);
+                    document.getElementById('secao-conteudo')?.scrollIntoView({ behavior: 'smooth' });
+                  }}
+                  className={`flex items-center gap-3 p-3 rounded-2xl text-left transition-colors ${
+                    activeTab === 'dashboard'
+                      ? 'bg-[#8B2635]/10 text-[#8B2635] font-semibold'
+                      : 'bg-white/60 dark:bg-black/20 text-[#1E1B18] dark:text-[#FAF8F5]'
+                  }`}
+                >
+                  <LayoutDashboard className="w-5 h-5 text-[#8B2635]" />
+                  <div>
+                    <strong className="block text-sm">Dashboard do Estabelecimento</strong>
+                    <span className="text-xs text-[#706B63] dark:text-[#A8A095]">Histórico de cartas de chá (cartas_cha) e propostas</span>
+                  </div>
+                </button>
+              )}
             </div>
 
             {/* Mobile Actions */}
             <div className="pt-2 border-t border-[#E5DACB] dark:border-[#2C2620] flex flex-col gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  setAuthError(null);
+                  setAuthModalOpen(true);
+                }}
+                className="w-full py-2.5 px-4 rounded-xl border border-[#DDD5C7] dark:border-[#383229] bg-white dark:bg-[#221E1A] text-[#1E1B18] dark:text-[#FAF8F5] text-xs font-semibold flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <User className="w-4 h-4 text-[#2E6B34]" />
+                <span>{firebaseUser ? `Conta (${firebaseUser.displayName?.split(' ')[0] || firebaseUser.email})` : 'Entrar com Google B2B'}</span>
+              </button>
+
               <button
                 type="button"
                 onClick={() => {
@@ -1278,6 +1633,19 @@ export default function App() {
       ───────────────────────────────────────────────────────────────────────────── */}
       <main id="secao-conteudo" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 lg:py-16">
         {/* Navigation Tab Indicator */}
+        {pushBannerOpen && (
+          <div className="mb-6 p-4 rounded-2xl bg-white border border-[#C68A36]/40 flex items-center justify-between gap-3 text-xs text-[#1E1B18] shadow-xs">
+            <span>Alertas B2B: Notificações ativas sobre estoques e lançamentos de safras exclusivas.</span>
+            <button
+              type="button"
+              onClick={() => setPushBannerOpen(false)}
+              className="text-[#8B2635] font-semibold cursor-pointer"
+            >
+              Fechar
+            </button>
+          </div>
+        )}
+
         <div className="flex items-center justify-between border-b border-[#E5DACB] pb-4 mb-10">
           <div>
             <span className="text-xs uppercase font-bold tracking-widest text-[#8B2635]">Seção Ativa</span>
@@ -1285,6 +1653,9 @@ export default function App() {
               {activeTab === 'consultoria' && 'Consultoria & Soluções B2B'}
               {activeTab === 'curadoria' && 'Curadoria & Harmonização Gastronômica'}
               {activeTab === 'calculadora' && 'Calculadora de Margem & Volume'}
+              {activeTab === 'dashboard' && 'Dashboard do Estabelecimento'}
+              {(activeTab === 'curador' || activeTab === 'carta' || activeTab === 'infusao' || activeTab === 'catalogo') && 'Curadoria & Harmonização Gastronômica'}
+              {activeTab === 'mapa_sabores' && 'Mapa de Sabores B2B'}
             </h2>
           </div>
 
@@ -1303,8 +1674,38 @@ export default function App() {
                 {tab}
               </button>
             ))}
+            {firebaseUser && (
+              <button
+                type="button"
+                onClick={() => setActiveTab('dashboard')}
+                className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
+                  activeTab === 'dashboard'
+                    ? 'bg-white text-[#8B2635] shadow-xs'
+                    : 'text-[#635B4E] hover:text-[#1E1B18]'
+                }`}
+              >
+                <LayoutDashboard className="w-3.5 h-3.5" />
+                <span>Dashboard</span>
+              </button>
+            )}
           </div>
         </div>
+
+        {/* ─────────────────────────────────────────────────────────────────────────
+            0A. ABA DASHBOARD DO ESTABELECIMENTO (FIRESTORE cartas_cha)
+        ───────────────────────────────────────────────────────────────────────── */}
+        {activeTab === 'dashboard' && (
+          <div className="animate-fadeIn">
+            <DashboardEstabelecimento
+              variant="full"
+              onOpenCarta={handleLoadCartaInCurator}
+              onOpenLeadModal={() => {
+                setContactSubmitted(false);
+                setContactModalOpen(true);
+              }}
+            />
+          </div>
+        )}
 
         {/* ─────────────────────────────────────────────────────────────────────────
             0. ABA MAPA DE SABORES B2B
@@ -1328,8 +1729,185 @@ export default function App() {
         {/* ─────────────────────────────────────────────────────────────────────────
             1. ABA CURADORIA / CURADOR
         ───────────────────────────────────────────────────────────────────────── */}
-        {(activeTab === 'curadoria' || activeTab === 'curador') && (
+        {(activeTab === 'curadoria' || activeTab === 'curador' || activeTab === 'carta') && (
           <div className="space-y-10 animate-fadeIn">
+            {/* Active Saved Carta Editor Banner & Form (Hydrated from Firestore) */}
+            {editingCarta && (
+              <div
+                id="curator-edit-carta-panel"
+                className="bg-white rounded-3xl border-2 border-[#C68A36]/50 shadow-sm p-5 sm:p-7 space-y-5"
+              >
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#EBE4D8] pb-4">
+                  <div className="space-y-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="px-2.5 py-0.5 rounded-full bg-[#8B2635]/10 text-[#8B2635] text-[10px] font-bold uppercase tracking-wider">
+                        Editando Carta Salva no Firestore
+                      </span>
+                      <span className="px-2.5 py-0.5 rounded-full bg-[#FAF5EE] border border-[#DDD5C7] text-[#635B4E] text-[10px] font-semibold">
+                        Status: {editingCarta.statusProposta === 'aprovada' ? 'Aprovada' : editingCarta.statusProposta === 'em_analise' ? 'Em Análise' : 'Pendente'}
+                      </span>
+                    </div>
+                    <h3 className="font-serif-editorial text-2xl font-bold text-[#1E1B18]">
+                      {curatorDraft.nome || editingCarta.nome || 'Carta de Chá'}
+                    </h3>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab('dashboard')}
+                      className="px-3.5 py-2 rounded-xl border border-[#DDD5C7] text-xs font-semibold text-[#1E1B18] hover:bg-[#FAF7F2] cursor-pointer"
+                    >
+                      Voltar ao Dashboard
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingCarta(null);
+                        setCuratorFeedback(null);
+                      }}
+                      className="px-3.5 py-2 rounded-xl border border-[#DDD5C7] text-xs font-semibold text-[#706B63] hover:bg-[#FAF7F2] cursor-pointer flex items-center gap-1"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                      <span>Sair da Edição</span>
+                    </button>
+                  </div>
+                </div>
+
+                {curatorFeedback && (
+                  <div
+                    className={`px-4 py-3 rounded-2xl text-xs font-medium border ${
+                      curatorFeedback.type === 'success'
+                        ? 'bg-[#2E6B34]/10 border-[#2E6B34]/30 text-[#2E6B34]'
+                        : 'bg-[#8B2635]/10 border-[#8B2635]/30 text-[#8B2635]'
+                    }`}
+                  >
+                    {curatorFeedback.message}
+                  </div>
+                )}
+
+                <form onSubmit={handleSaveCuratorEdit} className="space-y-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+                    <div>
+                      <label className="text-[11px] font-semibold text-[#4F4639] block mb-1">
+                        Nome da Carta *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        maxLength={CARTA_CHA_CONSTRAINTS.MAX_NOME_LEN}
+                        value={curatorDraft.nome}
+                        onChange={(e) => setCuratorDraft((prev) => ({ ...prev, nome: e.target.value }))}
+                        className="w-full px-3.5 py-2 rounded-xl border border-[#DDD5C7] text-xs bg-[#FAF7F2] focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#8B2635]"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-[11px] font-semibold text-[#4F4639] block mb-1">
+                        Estabelecimento
+                      </label>
+                      <input
+                        type="text"
+                        maxLength={CARTA_CHA_CONSTRAINTS.MAX_ESTABELECIMENTO_LEN}
+                        value={curatorDraft.estabelecimento}
+                        onChange={(e) =>
+                          setCuratorDraft((prev) => ({ ...prev, estabelecimento: e.target.value }))
+                        }
+                        className="w-full px-3.5 py-2 rounded-xl border border-[#DDD5C7] text-xs bg-[#FAF7F2] focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#8B2635]"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-[11px] font-semibold text-[#4F4639] block mb-1">
+                        Segmento
+                      </label>
+                      <input
+                        type="text"
+                        maxLength={CARTA_CHA_CONSTRAINTS.MAX_SEGMENTO_LEN}
+                        value={curatorDraft.segmento}
+                        onChange={(e) => setCuratorDraft((prev) => ({ ...prev, segmento: e.target.value }))}
+                        className="w-full px-3.5 py-2 rounded-xl border border-[#DDD5C7] text-xs bg-[#FAF7F2] focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#8B2635]"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-[11px] font-semibold text-[#4F4639] block mb-1">
+                        Formato de Serviço
+                      </label>
+                      <input
+                        type="text"
+                        maxLength={CARTA_CHA_CONSTRAINTS.MAX_FORMATO_LEN}
+                        value={curatorDraft.formatoServico}
+                        onChange={(e) =>
+                          setCuratorDraft((prev) => ({ ...prev, formatoServico: e.target.value }))
+                        }
+                        placeholder="Ex: Bule + Infusor Vapt Vupt"
+                        className="w-full px-3.5 py-2 rounded-xl border border-[#DDD5C7] text-xs bg-[#FAF7F2] focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#8B2635]"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                    <div>
+                      <label className="text-[11px] font-semibold text-[#4F4639] block mb-1">
+                        Blends Selecionados (separados por vírgula ou clique abaixo)
+                      </label>
+                      <textarea
+                        rows={2}
+                        value={curatorDraft.blendsText}
+                        onChange={(e) =>
+                          setCuratorDraft((prev) => ({ ...prev, blendsText: e.target.value }))
+                        }
+                        placeholder="Ex: Earl Grey Especial, Cherry Rose, Doce Amêndoa"
+                        className="w-full px-3.5 py-2 rounded-xl border border-[#DDD5C7] text-xs bg-[#FAF7F2] focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#8B2635]"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-[11px] font-semibold text-[#4F4639] block mb-1">
+                        Observações / Notas de Harmonização
+                      </label>
+                      <textarea
+                        rows={2}
+                        maxLength={CARTA_CHA_CONSTRAINTS.MAX_OBS_LEN}
+                        value={curatorDraft.observacoes}
+                        onChange={(e) =>
+                          setCuratorDraft((prev) => ({ ...prev, observacoes: e.target.value }))
+                        }
+                        className="w-full px-3.5 py-2 rounded-xl border border-[#DDD5C7] text-xs bg-[#FAF7F2] focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#8B2635]"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
+                    <span className="text-[11px] text-[#706B63]">
+                      Documento ID: <code className="font-mono">{editingCarta.id}</code>
+                    </span>
+
+                    <div className="flex flex-wrap items-center gap-2">
+                      <button
+                        type="button"
+                        disabled={downloadingCarta}
+                        onClick={handleDownloadCartaPdf}
+                        className="px-4 py-2.5 rounded-xl border border-[#C68A36] bg-[#FAF5EE] hover:bg-[#F3EAD9] text-[#8B2635] text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+                      >
+                        <Download className="w-3.5 h-3.5 text-[#C68A36]" />
+                        <span>{downloadingCarta ? 'Gerando PDF...' : 'Gerar Carta (PDF)'}</span>
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={savingCuratorEdit}
+                        className="px-5 py-2.5 rounded-xl bg-[#8B2635] hover:bg-[#721F2B] text-white text-xs font-bold shadow-xs flex items-center gap-1.5 cursor-pointer disabled:opacity-60"
+                      >
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                        <span>{savingCuratorEdit ? 'Salvando...' : 'Salvar Alterações no Firestore'}</span>
+                      </button>
+                    </div>
+                  </div>
+                </form>
+              </div>
+            )}
+
             {/* Filter and Search Bar */}
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 bg-white p-4 rounded-2xl border border-[#E5DACB] shadow-xs">
               <div className="relative flex-1">
@@ -1363,77 +1941,101 @@ export default function App() {
 
             {/* Curated Tea Cards Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {filteredTeas.map((tea) => (
-                <div
-                  key={tea.id}
-                  className="bg-white rounded-3xl border border-[#E5DACB] overflow-hidden shadow-xs hover:shadow-md transition-shadow flex flex-col justify-between"
-                >
-                  <div className="p-6">
-                    <div className="flex items-start justify-between gap-4 mb-3">
-                      <div>
-                        <span className="text-[11px] font-bold uppercase tracking-wider text-[#C68A36]">
-                          {tea.categoryLabel}
+              {filteredTeas.map((tea) => {
+                const isSelectedInEdit =
+                  Boolean(editingCarta) &&
+                  curatorDraft.blendsText
+                    .split(/[,\n]+/)
+                    .map((item) => item.trim().toLowerCase())
+                    .includes(tea.name.toLowerCase());
+
+                return (
+                  <div
+                    key={tea.id}
+                    className="bg-white rounded-3xl border border-[#E5DACB] overflow-hidden shadow-xs hover:shadow-md transition-shadow flex flex-col justify-between"
+                  >
+                    <div className="p-6">
+                      <div className="flex items-start justify-between gap-4 mb-3">
+                        <div>
+                          <span className="text-[11px] font-bold uppercase tracking-wider text-[#C68A36]">
+                            {tea.categoryLabel}
+                          </span>
+                          <h3 className="font-serif-editorial text-2xl font-bold text-[#1E1B18] mt-0.5">
+                            {tea.name}
+                          </h3>
+                          <span className="text-xs text-[#706B63]">{tea.type}</span>
+                        </div>
+
+                        <span className="px-2.5 py-1 rounded-full bg-[#8B2635]/10 text-[#8B2635] text-[11px] font-bold">
+                          {tea.badge}
                         </span>
-                        <h3 className="font-serif-editorial text-2xl font-bold text-[#1E1B18] mt-0.5">
-                          {tea.name}
-                        </h3>
-                        <span className="text-xs text-[#706B63]">{tea.type}</span>
                       </div>
 
-                      <span className="px-2.5 py-1 rounded-full bg-[#8B2635]/10 text-[#8B2635] text-[11px] font-bold">
-                        {tea.badge}
-                      </span>
-                    </div>
+                      <p className="text-sm font-medium text-[#38271D] mb-4 leading-relaxed">
+                        "{tea.headline}"
+                      </p>
 
-                    <p className="text-sm font-medium text-[#38271D] mb-4 leading-relaxed">
-                      "{tea.headline}"
-                    </p>
+                      <div className="space-y-2.5 text-xs text-[#524B40] bg-[#FAF7F2] p-4 rounded-2xl border border-[#EBE4D8]">
+                        <div>
+                          <strong className="text-[#1E1B18] block font-semibold mb-0.5">
+                            Harmonização Recomendada:
+                          </strong>
+                          <span>{tea.pairings}</span>
+                        </div>
 
-                    <div className="space-y-2.5 text-xs text-[#524B40] bg-[#FAF7F2] p-4 rounded-2xl border border-[#EBE4D8]">
-                      <div>
-                        <strong className="text-[#1E1B18] block font-semibold mb-0.5">
-                          Harmonização Recomendada:
-                        </strong>
-                        <span>{tea.pairings}</span>
-                      </div>
-
-                      <div className="flex items-center gap-2 pt-2 border-t border-[#E5DACB] text-[#706B63]">
-                        <Clock className="w-3.5 h-3.5 text-[#8B2635]" />
-                        <span>Ritual de Serviço: {tea.ritual}</span>
+                        <div className="flex items-center gap-2 pt-2 border-t border-[#E5DACB] text-[#706B63]">
+                          <Clock className="w-3.5 h-3.5 text-[#8B2635]" />
+                          <span>Ritual de Serviço: {tea.ritual}</span>
+                        </div>
                       </div>
                     </div>
-                  </div>
 
-                  <div className="p-4 bg-[#FAF7F2] border-t border-[#E5DACB] flex items-center justify-between">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setLeadForm((prev) => ({
-                          ...prev,
-                          interest: `Amostra olfativa de ${tea.name}`,
-                          notes: `Gostaria de conhecer o blend ${tea.name} para harmonização.`,
-                        }));
-                        setContactSubmitted(false);
-                        setContactModalOpen(true);
-                      }}
-                      className="text-xs font-semibold text-[#8B2635] hover:text-[#721F2B] flex items-center gap-1 cursor-pointer"
-                    >
-                      <span>Solicitar Amostra deste Blend</span>
-                      <ChevronRight className="w-3.5 h-3.5" />
-                    </button>
+                    <div className="p-4 bg-[#FAF7F2] border-t border-[#E5DACB] flex items-center justify-between gap-2">
+                      {editingCarta ? (
+                        <button
+                          type="button"
+                          onClick={() => handleToggleBlendInCuratorDraft(tea.name)}
+                          className={`px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-colors ${
+                            isSelectedInEdit
+                              ? 'bg-[#2E6B34] text-white'
+                              : 'bg-white border border-[#8B2635]/30 text-[#8B2635] hover:bg-[#8B2635]/5'
+                          }`}
+                        >
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                          <span>{isSelectedInEdit ? 'Na Carta em Edição' : 'Adicionar à Carta'}</span>
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setLeadForm((prev) => ({
+                              ...prev,
+                              interest: `Amostra olfativa de ${tea.name}`,
+                              notes: `Gostaria de conhecer o blend ${tea.name} para harmonização.`,
+                            }));
+                            setContactSubmitted(false);
+                            setContactModalOpen(true);
+                          }}
+                          className="text-xs font-semibold text-[#8B2635] hover:text-[#721F2B] flex items-center gap-1 cursor-pointer"
+                        >
+                          <span>Solicitar Amostra deste Blend</span>
+                          <ChevronRight className="w-3.5 h-3.5" />
+                        </button>
+                      )}
 
-                    <a
-                      href={getWhatsAppUrl(`Olá! Gostaria de consultar a disponibilidade B2B do chá ${tea.name}.`)}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="p-2 rounded-xl text-[#2E6B34] hover:bg-white transition-colors"
-                      title="Consultar no WhatsApp"
-                    >
-                      <MessageCircle className="w-4 h-4" />
-                    </a>
+                      <a
+                        href={getWhatsAppUrl(`Olá! Gostaria de consultar a disponibilidade B2B do chá ${tea.name}.`)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="p-2 rounded-xl text-[#2E6B34] hover:bg-white transition-colors"
+                        title="Consultar no WhatsApp"
+                      >
+                        <MessageCircle className="w-4 h-4" />
+                      </a>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         )}
@@ -2016,6 +2618,109 @@ export default function App() {
                     </button>
                   </div>
                 </form>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ─────────────────────────────────────────────────────────────────────────────
+          MODAL DE AUTENTICAÇÃO B2B & ACESSO AO DASHBOARD (FIREBASE AUTH)
+      ───────────────────────────────────────────────────────────────────────────── */}
+      {authModalOpen && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="app-auth-modal-title"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-fadeIn"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setAuthModalOpen(false);
+          }}
+        >
+          <div className="bg-[#FAF8F5] dark:bg-[#181512] rounded-3xl max-w-md w-full p-6 sm:p-7 shadow-2xl border border-[#DDD5C7] dark:border-[#332C24] relative text-[#1E1B18] dark:text-[#FAF8F5] space-y-5">
+            <button
+              type="button"
+              onClick={() => setAuthModalOpen(false)}
+              aria-label="Fechar modal de autenticação"
+              className="absolute top-4 right-4 p-2 rounded-xl text-[#706B63] hover:bg-black/5 dark:hover:bg-white/5 transition-colors cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="flex items-center gap-3 pr-8">
+              <div className="w-11 h-11 rounded-2xl bg-[#8B2635]/10 text-[#8B2635] flex items-center justify-center shrink-0">
+                <ShieldCheck className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 id="app-auth-modal-title" className="font-serif-editorial text-xl font-bold leading-tight">
+                  {firebaseUser ? 'Conta & Dashboard B2B' : 'Acesso Parceiro B2B'}
+                </h3>
+                <p className="text-xs text-[#706B63] dark:text-[#A8A095]">
+                  Autenticação Firebase para acessar suas cartas em cartas_cha.
+                </p>
+              </div>
+            </div>
+
+            {authError && (
+              <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-xs text-red-700 dark:text-red-300">
+                {authError}
+              </div>
+            )}
+
+            {firebaseUser ? (
+              <div className="space-y-4">
+                <div className="p-4 rounded-2xl bg-white dark:bg-[#221E1A] border border-[#E5DDD0] dark:border-[#332C24] space-y-1">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-sm font-bold truncate">
+                      {firebaseUser.displayName || 'Parceiro Autenticado'}
+                    </span>
+                    <span className="px-2 py-0.5 rounded-md bg-[#2E6B34]/12 text-[#2E6B34] dark:text-[#6FD47B] text-[10px] font-bold uppercase">
+                      Conectado
+                    </span>
+                  </div>
+                  <p className="text-xs font-mono text-[#706B63] dark:text-[#A8A095] truncate">
+                    {firebaseUser.email || firebaseUser.uid}
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  id="auth-modal-dashboard-btn"
+                  onClick={() => {
+                    setAuthModalOpen(false);
+                    setActiveTab('dashboard');
+                    document.getElementById('secao-conteudo')?.scrollIntoView({ behavior: 'smooth' });
+                  }}
+                  className="w-full py-3 px-4 rounded-xl bg-[#8B2635] hover:bg-[#721F2B] text-white text-xs font-bold flex items-center justify-center gap-2 shadow-sm transition-colors cursor-pointer"
+                >
+                  <LayoutDashboard className="w-4 h-4" />
+                  <span>Exibir Dashboard do Estabelecimento (Cartas & Propostas)</span>
+                </button>
+
+                <button
+                  type="button"
+                  disabled={authBusy}
+                  onClick={handleFirebaseSignOut}
+                  className="w-full py-2.5 px-4 rounded-xl border border-[#DDD5C7] dark:border-[#383229] text-xs font-semibold text-[#8B2635] dark:text-[#E88E9B] hover:bg-black/5 dark:hover:bg-white/5 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                  <span>{authBusy ? 'Saindo...' : 'Encerrar Sessão'}</span>
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <p className="text-xs text-[#635B4E] dark:text-[#C2B8AA] leading-relaxed">
+                  Faça login com sua conta Google para consultar suas cartas de chá criadas, datas e o andamento das propostas comerciais (Pendente / Em Análise / Aprovada).
+                </p>
+                <button
+                  type="button"
+                  disabled={authBusy}
+                  onClick={handleGoogleSignIn}
+                  className="w-full py-3 px-4 rounded-xl bg-[#8B2635] hover:bg-[#721F2B] text-white text-xs font-bold flex items-center justify-center gap-2 shadow-sm transition-colors cursor-pointer disabled:opacity-60"
+                >
+                  <LogIn className="w-4 h-4" />
+                  <span>{authBusy ? 'Autenticando...' : 'Entrar com Google'}</span>
+                </button>
               </div>
             )}
           </div>

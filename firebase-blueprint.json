@@ -179,6 +179,85 @@
       },
       "required": ["id", "uid", "ownerId", "name", "businessType", "itemCount", "createdAt", "updatedAt"]
     },
+    "CartaCha": {
+      "title": "CartaCha",
+      "description": "Custom tea menu and commercial proposal status document stored in top-level /cartas_cha/{cartaId}.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Document ID.",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_-]+$"
+        },
+        "uid": {
+          "type": "string",
+          "description": "Authenticated creator UID.",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_-]+$"
+        },
+        "ownerId": {
+          "type": "string",
+          "description": "Authenticated owner UID.",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_-]+$"
+        },
+        "nome": {
+          "type": "string",
+          "description": "Name of the curated tea menu.",
+          "minLength": 1,
+          "maxLength": 140
+        },
+        "estabelecimento": {
+          "type": "string",
+          "description": "Establishment or venue name.",
+          "maxLength": 150
+        },
+        "segmento": {
+          "type": "string",
+          "description": "Hospitality segment (Restaurante, Hotel, Cafeteria, etc.).",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "formatoServico": {
+          "type": "string",
+          "description": "Tableside service format.",
+          "maxLength": 160
+        },
+        "itensCount": {
+          "type": "number",
+          "description": "Number of selected blends in the menu (1 to 20)."
+        },
+        "blends": {
+          "type": "array",
+          "description": "Up to 20 selected blend names or identifiers."
+        },
+        "statusProposta": {
+          "type": "string",
+          "enum": ["pendente", "em_analise", "aprovada"],
+          "description": "Commercial proposal review status."
+        },
+        "observacoes": {
+          "type": "string",
+          "description": "Menu pairing or commercial notes.",
+          "maxLength": 500
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server creation timestamp."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server last update timestamp."
+        }
+      },
+      "required": ["id", "uid", "ownerId", "nome", "segmento", "itensCount", "statusProposta", "createdAt", "updatedAt"]
+    },
     "B2BLead": {
       "title": "B2BLead",
       "description": "B2B commercial inquiry or sample request submitted by an authenticated partner.",
@@ -332,6 +411,10 @@
     "/users/{userId}/cartas/{cartaId}": {
       "schema": { "$ref": "#/entities/SavedCarta" },
       "description": "Saved custom tea menus created by user {userId}."
+    },
+    "/cartas_cha/{cartaId}": {
+      "schema": { "$ref": "#/entities/CartaCha" },
+      "description": "Authenticated partner tea menus with commercial proposal status tracked in top-level cartas_cha."
     },
     "/b2b_leads/{leadId}": {
       "schema": { "$ref": "#/entities/B2BLead" },

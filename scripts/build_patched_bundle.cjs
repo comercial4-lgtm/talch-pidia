@@ -158,11 +158,15 @@ async function main() {
   const FIREBASE_CONFIG_PATH = path.resolve(__dirname, '../firebase-applet-config.json');
   const firebaseConfig = JSON.parse(fs.readFileSync(FIREBASE_CONFIG_PATH, 'utf8'));
   const targetFirebaseInit =
-    'var zS={projectId:`gen-lang-client-0463531550`,appId:`1:319883251550:web:a76b3f7e61040d1a3049cf`,apiKey:`AIzaSyDFanFu8BWY5PvduSV4UWjV8HRpxvi2SnY`,authDomain:`gen-lang-client-0463531550.firebaseapp.com`,firestoreDatabaseId:`ai-studio-talchpidiaconsul-86c36ca8-d5fe-4235-8340-585004124b24`,storageBucket:`gen-lang-client-0463531550.firebasestorage.app`,messagingSenderId:`319883251550`,measurementId:``,oAuthClientId:`319883251550-82vv2u515gtsn9q07sgum8o48robvjcr.apps.googleusercontent.com`,recaptchaSiteKey:``}';
+    'var zS={projectId:`gen-lang-client-0463531550`,appId:`1:319883251550:web:a76b3f7e61040d1a3049cf`,apiKey:`AIzaSyDFanFu8BWY5PvduSV4UWjV8HRpxvi2SnY`,authDomain:`gen-lang-client-0463531550.firebaseapp.com`,firestoreDatabaseId:`ai-studio-talchpidiaconsul-86c36ca8-d5fe-4235-8340-585004124b24`,storageBucket:`gen-lang-client-0463531550.firebasestorage.app`,messagingSenderId:`319883251550`,measurementId:``,oAuthClientId:`319883251550-82vv2u515gtsn9q07sgum8o48robvjcr.apps.googleusercontent.com`,recaptchaSiteKey:``},BS=Yr(zS),VS=xS(BS,zS.firestoreDatabaseId),HS=uc(BS);';
   if (!code.includes(targetFirebaseInit)) {
     throw new Error('Could not find targetFirebaseInit (zS)');
   }
-  code = code.replace(targetFirebaseInit, `var zS=${JSON.stringify(firebaseConfig)}`);
+  code = code.replace(
+    targetFirebaseInit,
+    () =>
+      `var zS=${JSON.stringify(firebaseConfig)},BS=Yr(zS),VS=(function(db){try{db._setSettings({experimentalForceLongPolling:!0,useFetchStreams:!1})}catch{}return db})(xS(BS,zS.firestoreDatabaseId)),HS=uc(BS);`
+  );
 
   const targetAuthorizedDomains =
     'authorizedDomains:[zS.authDomain,`ais-dev-msr3gkhtymu4xiaa5ukmb2-582500982508.us-east1.run.app`,`ais-pre-msr3gkhtymu4xiaa5ukmb2-582500982508.us-east1.run.app`,`localhost`]';
@@ -284,7 +288,13 @@ async function main() {
       target: ['es2020'],
       plugins: [bridgePlugin],
     }),
-    compileMissingScopedCss(ESTABLISHMENT_DASHBOARD_TSX, '#talcha-dashboard-estabelecimento-scope', { includeAllTokens: true }),
+    compileMissingScopedCssFromText(
+      fs.readFileSync(ESTABLISHMENT_DASHBOARD_TSX, 'utf8') +
+        '\n' +
+        fs.readFileSync(path.resolve(__dirname, '../src/components/DashboardEstabelecimento.tsx'), 'utf8'),
+      '#talcha-dashboard-estabelecimento-scope',
+      { includeAllTokens: true }
+    ),
     esbuild.build({
       entryPoints: [TEA_RITUAL_3D_TSX],
       bundle: true,
@@ -560,6 +570,89 @@ ${faqSectionResult.outputFiles[0].text}
 ${partnerTestimonialsResult.outputFiles[0].text}
 ${interactiveHeaderResult.outputFiles[0].text}
 ${brandContextResult.outputFiles[0].text}
+function talchaMapBusinessType(rawSegment){
+  var s=String(rawSegment||'').toLowerCase();
+  if(s.includes('hotel')||s.includes('resort'))return 'Hotel';
+  if(s.includes('cafeteria')||s.includes('café')||s.includes('padaria')||s.includes('confeitaria')||s.includes('bakery'))return 'Cafeteria';
+  if(s.includes('spa')||s.includes('wellness'))return 'Spa';
+  if(s.includes('empório')||s.includes('emporio')||s.includes('gourmet')||s.includes('delicatessen'))return 'Empório';
+  if(s.includes('outro')||s.includes('evento')||s.includes('corporativo'))return 'Outro';
+  return 'Restaurante';
+}
+function talchaNormalizeCartaPayload(raw,lang,localize,catalogList,getTplFn){
+  var resolvedBiz=talchaMapBusinessType(raw.businessType||raw.segmento||'Restaurante');
+  var tpl=typeof getTplFn==='function'?getTplFn(resolvedBiz,lang):null;
+  var tplIds=Array.isArray(tpl&&tpl.items)?tpl.items.map(function(it){return it.blend&&it.blend.id;}).filter(Boolean):[];
+  var list=Array.isArray(catalogList)?catalogList:[];
+  function findProduct(token){
+    if(!token)return null;
+    var q=String(token).trim().toLowerCase();
+    return list.find(function(p){
+      if(!p)return false;
+      if(String(p.id||'').toLowerCase()===q)return true;
+      if(String(p.name||'').toLowerCase()===q)return true;
+      if(p.name_en&&String(p.name_en).toLowerCase()===q)return true;
+      if(p.name_es&&String(p.name_es).toLowerCase()===q)return true;
+      return String(p.name||'').toLowerCase().includes(q);
+    })||null;
+  }
+  var rawCustom=Array.isArray(raw.customBlendIds)?raw.customBlendIds:[];
+  var rawRemoved=Array.isArray(raw.removedBlendIds)?raw.removedBlendIds:[];
+  var rawBlends=Array.isArray(raw.blends)?raw.blends:[];
+  var customBlendIds=rawCustom.map(function(x){var p=findProduct(x);return p?p.id:String(x);}).filter(Boolean);
+  var removedBlendIds=rawRemoved.slice();
+  if(rawBlends.length>0&&customBlendIds.length===0&&removedBlendIds.length===0){
+    var matchedProducts=rawBlends.map(findProduct).filter(Boolean);
+    if(matchedProducts.length>0){
+      var matchedSet=new Set(matchedProducts.map(function(p){return p.id;}));
+      removedBlendIds=tplIds.filter(function(tid){return !matchedSet.has(tid);});
+      customBlendIds=matchedProducts.filter(function(p){return !tplIds.includes(p.id);}).map(function(p){return p.id;});
+    }
+  }
+  return{
+    id:raw.id,
+    name:raw.name||raw.nome||raw.cartaTitle||'Carta de Chás',
+    establishmentName:raw.establishmentName!==undefined?raw.establishmentName:(raw.estabelecimento||''),
+    businessType:resolvedBiz,
+    audienceProfile:raw.audienceProfile||'',
+    operatingHours:raw.operatingHours||'',
+    menuHighlights:raw.menuHighlights!==undefined?raw.menuHighlights:(raw.observacoes||''),
+    serviceFormat:raw.serviceFormat!==undefined?raw.serviceFormat:(raw.formatoServico||''),
+    cartaTitle:raw.cartaTitle||raw.nome||raw.name||'',
+    itemCount:raw.itemCount||raw.itensCount||Math.max(1,tplIds.length-removedBlendIds.length+customBlendIds.length),
+    customBlendIds:customBlendIds,
+    removedBlendIds:removedBlendIds,
+    replacedBlendMap:raw.replacedBlendMap&&typeof raw.replacedBlendMap==='object'?raw.replacedBlendMap:{},
+    statusProposta:raw.statusProposta||'pendente',
+    loadedFromFirestore:!!(raw._loadedFromFirestore||raw.source==='cloud')
+  };
+}
+function TalchaCuratorEditBanner({editingCarta,saving,onSaveEdits,onOpenSaveModal,onDiscard,localize}){
+  if(!editingCarta)return null;
+  var st=editingCarta.statusProposta||'pendente';
+  var isApproved=st==='aprovada';
+  var statusLabel=st==='aprovada'?localize('Aprovada','Approved','Aprobada'):st==='em_analise'?localize('Em Análise','Under Review','En Análisis'):localize('Pendente','Pending','Pendiente');
+  return(0,Z.jsxs)('div',{
+    id:'talcha-curator-editing-banner',
+    style:{backgroundColor:'#FFFFFF',borderTop:'3px solid #C68A36',borderRight:'1px solid #DFD2BF',borderBottom:'1px solid #DFD2BF',borderLeft:'1px solid #DFD2BF',borderRadius:'16px',marginBottom:'20px',padding:'14px 18px',display:'flex',flexWrap:'wrap',alignItems:'center',justifyContent:'space-between',gap:'12px',boxShadow:'0 4px 14px rgba(30,27,24,0.06)'},
+    children:[
+      (0,Z.jsxs)('div',{style:{minWidth:0,flex:'1 1 260px'},children:[
+        (0,Z.jsxs)('div',{style:{display:'flex',flexWrap:'wrap',alignItems:'center',gap:'8px',marginBottom:'4px'},children:[
+          (0,Z.jsx)('span',{style:{fontSize:'10px',fontWeight:800,letterSpacing:'0.1em',textTransform:'uppercase',padding:'2px 8px',borderRadius:'6px',backgroundColor:'#8B2635',color:'#FFFFFF'},children:localize('Modo Edição · Firestore','Edit Mode · Firestore','Modo Edición · Firestore')}),
+          (0,Z.jsx)('span',{style:{fontSize:'10px',fontWeight:700,letterSpacing:'0.06em',textTransform:'uppercase',padding:'2px 8px',borderRadius:'6px',backgroundColor:isApproved?'#EAF5EB':'#FAF4E8',color:isApproved?'#235428':'#8F5F14',border:'1px solid #C68A36'},children:localize('Proposta: ','Proposal: ','Propuesta: ')+statusLabel}),
+          (0,Z.jsx)('span',{style:{fontSize:'10px',fontFamily:'monospace',color:'#70675A'},children:'#'+String(editingCarta.id||'')})
+        ]}),
+        (0,Z.jsx)('div',{style:{fontSize:'15px',fontWeight:700,color:'#1E1B18',lineHeight:1.3},children:editingCarta.name||localize('Carta de Chás','Tea Menu','Carta de Té')}),
+        (0,Z.jsx)('div',{style:{fontSize:'12px',color:'#5C564D',marginTop:'2px'},children:isApproved?localize('Esta proposta já foi aprovada em cartas_cha; ao salvar alterações, sua edição será preservada na cópia pessoal ou como nova revisão.','This proposal is already approved; saving keeps your edits in your personal menu or creates a revision.','Esta propuesta ya fue aprobada; guardar actualiza tu copia personal o crea una nueva revisión.'):localize('Ajuste o segmento, estabelecimento, harmonizações ou blends abaixo e salve diretamente no Firestore.','Adjust venue details, pairings or blends below and save directly back to Firestore.','Ajusta segmento, local, notas o blends abajo y guarda los cambios en Firestore.')})
+      ]}),
+      (0,Z.jsxs)('div',{style:{display:'flex',flexWrap:'wrap',alignItems:'center',gap:'8px',flexShrink:0},children:[
+        (0,Z.jsx)('button',{type:'button',disabled:!!saving,onClick:onSaveEdits,style:{padding:'8px 14px',borderRadius:'10px',backgroundColor:'#2E6B34',border:'1px solid #235428',color:'#FFFFFF',fontSize:'12px',fontWeight:700,cursor:saving?'wait':'pointer',opacity:saving?0.7:1},children:saving?localize('Salvando no Firestore...','Saving to Firestore...','Guardando...'):isApproved?localize('Atualizar Cópia Pessoal','Update Personal Copy','Actualizar Copia'):localize('Salvar Alterações no Firestore','Save Changes to Firestore','Guardar Cambios en Firestore')}),
+        (0,Z.jsx)('button',{type:'button',onClick:onOpenSaveModal,style:{padding:'8px 12px',borderRadius:'10px',backgroundColor:'#FAF7F2',border:'1px solid #C68A36',color:'#8B2635',fontSize:'12px',fontWeight:600,cursor:'pointer'},children:localize('Renomear / Cópia','Rename / Copy','Renombrar / Copia')}),
+        (0,Z.jsx)('button',{type:'button',onClick:onDiscard,style:{padding:'8px 12px',borderRadius:'10px',backgroundColor:'#FFFFFF',border:'1px solid #DFD2BF',color:'#5C564D',fontSize:'12px',fontWeight:600,cursor:'pointer'},children:localize('Sair da Edição','Exit Edit Mode','Salir de Edición')})
+      ]})
+    ]
+  });
+}
 function TalchaClientLogoBar({venueName,localize}){
   let[logo,setLogo]=(0,w.useState)(()=>{try{return localStorage.getItem('talcha_carta_client_logo')||null}catch{return null}}),
   inpRef=(0,w.useRef)(null);
@@ -642,7 +735,7 @@ function TalchaExperiencesStrip({onNavigate}){
 
   const anchorZ = 'dC=`talchapidia_theme_mode`;';
   if (!code.includes(anchorZ)) throw new Error('Could not find anchorZ');
-  code = code.replace(anchorZ, `${anchorZ}${sharedRuntimeHelper}`);
+  code = code.replace(anchorZ, () => `${anchorZ}${sharedRuntimeHelper}`);
   console.log('✓ Embedded official Talchá PNG logos, FlavorMap, normalized logo helpers & strictly scoped FlavorMap CSS');
 
   // ---------------------------------------------------------------------------
@@ -657,6 +750,23 @@ function TalchaExperiencesStrip({onNavigate}){
   code = code.replace(targetHeaderMount, replaceHeaderMount);
   console.log('✓ Replaced static header with TalchaInteractiveHeader (mega menu, quick search Cmd+K, scroll progress)');
 
+  // Wire Auth Modal (rpe) direct Dashboard do Estabelecimento button when logged in
+  const targetRpeSig = 'rpe=()=>{let{user:e,userProfile:t,csrfToken:n,isAuthModalOpen:r,setIsAuthModalOpen:i,';
+  const replaceRpeSig = 'rpe=({onOpenDashboard}={})=>{let{user:e,userProfile:t,csrfToken:n,isAuthModalOpen:r,setIsAuthModalOpen:i,';
+  if (!code.includes(targetRpeSig)) throw new Error('Could not find targetRpeSig');
+  code = code.replace(targetRpeSig, replaceRpeSig);
+
+  const targetRpeLoggedInStart = 'S&&(0,Z.jsxs)(`div`,{className:`mt-4 p-3.5 rounded-2xl bg-[#2E6B34]/10 border border-[#2E6B34]/30 text-xs text-[#2E6B34] dark:text-[#6FD47B] flex items-center gap-2`,children:[(0,Z.jsx)(fe,{className:`w-4 h-4 shrink-0`}),(0,Z.jsx)(`span`,{children:S})]}),e?(0,Z.jsxs)(`div`,{className:`mt-5 space-y-4`,children:[';
+  const replaceRpeLoggedInStart = 'S&&(0,Z.jsxs)(`div`,{className:`mt-4 p-3.5 rounded-2xl bg-[#2E6B34]/10 border border-[#2E6B34]/30 text-xs text-[#2E6B34] dark:text-[#6FD47B] flex items-center gap-2`,children:[(0,Z.jsx)(fe,{className:`w-4 h-4 shrink-0`}),(0,Z.jsx)(`span`,{children:S})]}),e?(0,Z.jsxs)(`div`,{className:`mt-5 space-y-4`,children:[onOpenDashboard&&(0,Z.jsxs)(`div`,{className:`p-3.5 rounded-2xl bg-[#8B2635]/8 dark:bg-[#8B2635]/20 border border-[#8B2635]/25 flex flex-col sm:flex-row sm:items-center justify-between gap-3`,children:[(0,Z.jsxs)(`div`,{className:`min-w-0`,children:[(0,Z.jsx)(`span`,{className:`text-[10px] font-bold uppercase tracking-wider text-[#8B2635] dark:text-[#F3D78E] block`,children:_(`Área Autenticada · Firestore (cartas_cha)`,`Authenticated Workspace · Firestore`,`Área Autenticada · Firestore`)}),(0,Z.jsx)(`strong`,{className:`text-xs font-bold text-[#1E1B18] dark:text-[#FAF8F5] block`,children:_(`Dashboard do Estabelecimento`,`Establishment Dashboard`,`Panel del Establecimiento`)}),(0,Z.jsx)(`span`,{className:`text-[11px] text-[#6E6659] dark:text-[#C7BFB2] block`,children:_(`Consulte suas cartas de chá e status (Pendente / Em Análise / Aprovada).`,`View your tea menus and commercial proposal statuses.`,`Ve tus cartas de té y estado de propuestas.`)})]}),(0,Z.jsx)(`button`,{type:`button`,id:`auth-modal-open-dashboard-btn`,onClick:()=>{globalThis.__TALCHA_DASHBOARD_INIT_STATE__={tab:`cartas_cha`};j();onOpenDashboard()},className:`px-3.5 py-2 rounded-xl bg-[#8B2635] hover:bg-[#721F2B] text-white text-xs font-semibold whitespace-nowrap shrink-0 cursor-pointer shadow-xs`,children:_(`Abrir Dashboard`,`Open Dashboard`,`Abrir Panel`)})]}),';
+  if (!code.includes(targetRpeLoggedInStart)) throw new Error('Could not find targetRpeLoggedInStart');
+  code = code.replace(targetRpeLoggedInStart, () => replaceRpeLoggedInStart);
+
+  const targetRpeMount = '(0,Z.jsx)(rpe,{})';
+  const replaceRpeMount = '(0,Z.jsx)(rpe,{onOpenDashboard:()=>{P(`dashboard`),window.scrollTo({top:0,behavior:`smooth`})}})';
+  if (!code.includes(targetRpeMount)) throw new Error('Could not find targetRpeMount');
+  code = code.replace(targetRpeMount, replaceRpeMount);
+  console.log('✓ Wired Auth Modal (rpe) direct Dashboard do Estabelecimento button');
+
   const targetApe = 'f===`cardapio`&&(0,Z.jsx)(Pfe,{onOpenLeadModal:(e,t)=>F(e,t)})';
   const replaceApe =
     'f===`ritual_3d`&&(0,Z.jsx)(TeaRitual3D,{onSelectBlendForCarta:()=>{p(`carta`),window.scrollTo({top:0,behavior:`smooth`})},onOpenLeadModal:(e,t)=>F(e,t)}),f===`mapa_flagship`&&(0,Z.jsx)(TalchaMapsExplorer,{onOpenLeadModal:(e,t)=>F(e,t)}),f===`atelie_ia`&&(0,Z.jsx)(TalchaStudioAI,{onOpenLeadModal:(e,t)=>F(e,t)}),f===`mapa_sabores`&&(0,Z.jsx)(FlavorMap,{onSelectBlendForCarta:()=>{p(`carta`),window.scrollTo({top:0,behavior:`smooth`})},onOpenLeadModal:(e,t)=>F(e,t)}),f===`cardapio`&&(0,Z.jsx)(Pfe,{onOpenLeadModal:(e,t)=>F(e,t)})';
@@ -665,7 +775,7 @@ function TalchaExperiencesStrip({onNavigate}){
 
   const targetHomeStripAnchor = 'onOpenPartnershipModal:()=>O(!0)}),(0,Z.jsx)(Ife,{})]})';
   const replaceHomeStripAnchor =
-    'onOpenPartnershipModal:()=>O(!0)}),(s&&o&&(0,Z.jsx)(DashboardEstabelecimento,{variant:`compact`,onOpenCarta:c=>{if(c)globalThis.__TALCHA_PENDING_CARTA_LOAD__=c;P(`carta`),window.scrollTo({top:0,behavior:`smooth`})},onOpenLeadModal:(e,t)=>F(e,t),onOpenFullDashboard:()=>{P(`dashboard`),window.scrollTo({top:0,behavior:`smooth`})}})),(0,Z.jsx)(TalchaTestimonialsSection,{onOpenLeadModal:F}),(0,Z.jsx)(Ife,{}),(0,Z.jsx)(TalchaBrandContextSection,{onNavigate:P,onOpenLeadModal:F}),(0,Z.jsx)(TalchaExperiencesStrip,{onNavigate:P})]})';
+    'onOpenPartnershipModal:()=>O(!0)}),(s&&o&&(0,Z.jsx)(DashboardEstabelecimento,{variant:`compact`,onOpenCarta:c=>{if(c){globalThis.__TALCHA_PENDING_CARTA_LOAD__=c;try{window.dispatchEvent(new CustomEvent(`talcha_load_carta`,{detail:c}))}catch{}}P(`carta`),window.scrollTo({top:0,behavior:`smooth`})},onOpenLeadModal:(e,t)=>F(e,t),onOpenFullDashboard:()=>{P(`dashboard`),window.scrollTo({top:0,behavior:`smooth`})}})),(0,Z.jsx)(TalchaTestimonialsSection,{onOpenLeadModal:F}),(0,Z.jsx)(Ife,{}),(0,Z.jsx)(TalchaBrandContextSection,{onNavigate:P,onOpenLeadModal:F}),(0,Z.jsx)(TalchaExperiencesStrip,{onNavigate:P})]})';
   if (!code.includes(targetHomeStripAnchor)) throw new Error('Could not find targetHomeStripAnchor');
   code = code.replace(targetHomeStripAnchor, replaceHomeStripAnchor);
 
@@ -787,9 +897,10 @@ function TalchaExperiencesStrip({onNavigate}){
   if (!code.includes(targetDashPrompt)) throw new Error('Could not find targetDashPrompt');
   code = code.replace(targetDashPrompt, replaceDashPrompt);
 
-  // Hook pending Carta load inside jfe + dispatch dashboard refresh on save/lead
+  // Hook pending & event-driven Carta load inside jfe + Editing state + Firestore Update + Save
   const targetJfeEffect = ',Ae=()=>{Q.light(),d(`Restaurante`)';
-  const replaceJfeEffect = ',_pendingCartaLoad=(0,w.useEffect)(()=>{let pending=globalThis.__TALCHA_PENDING_CARTA_LOAD__;if(pending){globalThis.__TALCHA_PENDING_CARTA_LOAD__=null;try{ke({...pending,audienceProfile:pending.audienceProfile||i(n),operatingHours:pending.operatingHours||o(n),menuHighlights:pending.menuHighlights||a(n),serviceFormat:pending.serviceFormat||s(n)})}catch{}}},[]),Ae=()=>{Q.light(),d(`Restaurante`)';
+  const replaceJfeEffect =
+    ',[editingCarta,setEditingCarta]=(0,w.useState)(null),[savingCuratorEdit,setSavingCuratorEdit]=(0,w.useState)(!1),talchaApplyCarta=(0,w.useCallback)(raw=>{if(!raw)return;try{let norm=talchaNormalizeCartaPayload(raw,n,r,zM,KM);ke({...norm,audienceProfile:norm.audienceProfile||i(n),operatingHours:norm.operatingHours||o(n),menuHighlights:norm.menuHighlights||a(n),serviceFormat:norm.serviceFormat||s(n)});if(norm.id&&!String(norm.id).startsWith(`preset_`)){setEditingCarta({id:norm.id,name:norm.name,statusProposta:norm.statusProposta||`pendente`,loadedFromFirestore:norm.loadedFromFirestore})}else{setEditingCarta(null)}}catch(err){console.warn(`Erro ao carregar carta no curador:`,err)}},[n,r]),_pendingCartaLoad=(0,w.useEffect)(()=>{let pending=globalThis.__TALCHA_PENDING_CARTA_LOAD__;if(pending){globalThis.__TALCHA_PENDING_CARTA_LOAD__=null;talchaApplyCarta(pending)}let onEv=ev=>{if(ev?.detail){globalThis.__TALCHA_PENDING_CARTA_LOAD__=null;talchaApplyCarta(ev.detail)}};window.addEventListener(`talcha_load_carta`,onEv);return()=>window.removeEventListener(`talcha_load_carta`,onEv)},[talchaApplyCarta]),Ae=()=>{Q.light(),setEditingCarta(null),d(`Restaurante`)';
   if (!code.includes(targetJfeEffect)) throw new Error('Could not find targetJfeEffect');
   code = code.replace(targetJfeEffect, replaceJfeEffect);
 
@@ -809,14 +920,35 @@ function TalchaExperiencesStrip({onNavigate}){
   code = code.replace(targetCartaSave, replaceCartaSave);
 
   const targetCartaCloudSave = 'customBlendIds:t,createdAt:E_(),updatedAt:E_()}).catch(t=>{try{JS(t,qS.CREATE,e)}catch{}})';
-  const replaceCartaCloudSave = 'customBlendIds:t,createdAt:E_(),updatedAt:E_()}).then(()=>{try{window.dispatchEvent(new Event(`talcha_dashboard_refresh`))}catch{}}).catch(t=>{try{JS(t,qS.CREATE,e)}catch{}})';
+  const replaceCartaCloudSave = 'customBlendIds:t,createdAt:E_(),updatedAt:E_()}).then(()=>{try{let chaBlends=Array.isArray(e.allBlendIds)&&e.allBlendIds.length>0?e.allBlendIds.slice(0,20).map(b=>L9(b,80)).filter(Boolean):t;MS(Qg(VS,`cartas_cha`,r),{id:r,uid:n,ownerId:n,nome:L9(i.name,140,`Carta Personalizada`),estabelecimento:L9(i.establishmentName,150,``),segmento:L9(i.businessType,80,`Restaurante`),formatoServico:L9(i.serviceFormat,160,`Serviço de Salão`),itensCount:Math.max(1,Math.min(20,Number(i.itemCount)||4)),blends:chaBlends,statusProposta:`pendente`,observacoes:L9(i.menuHighlights,500,``),createdAt:E_(),updatedAt:E_()}).catch(()=>{});window.dispatchEvent(new Event(`talcha_dashboard_refresh`))}catch{}}).catch(t=>{try{JS(t,qS.CREATE,e)}catch{}})';
   if (!code.includes(targetCartaCloudSave)) throw new Error('Could not find targetCartaCloudSave');
   code = code.replace(targetCartaCloudSave, replaceCartaCloudSave);
 
+  const targetZ9SaveEnd = 'HS.currentUser.getIdToken().then(e=>eC(`/api/cartas`,{method:`POST`,headers:{"Content-Type":`application/json`,Authorization:`Bearer ${e}`},body:JSON.stringify(i)})).catch(()=>{})}return i},delete(e){';
+  const replaceZ9SaveEnd = 'HS.currentUser.getIdToken().then(e=>eC(`/api/cartas`,{method:`POST`,headers:{"Content-Type":`application/json`,Authorization:`Bearer ${e}`},body:JSON.stringify(i)})).catch(()=>{})}return i},async update(rawId,e){let t=this.getAll(),n=HS.currentUser?.uid?I9(HS.currentUser.uid):void 0,r=I9(rawId),nowIso=new Date().toISOString(),existing=t.find(x=>x.id===r),updated={...(existing||{}),...e,id:r,ownerId:n||existing?.ownerId,savedAt:nowIso,updatedAt:nowIso},nextList=existing?t.map(x=>x.id===r?updated:x):[updated,...t];try{localStorage.setItem(F9(),JSON.stringify(nextList)),window.dispatchEvent(new Event(`talcha_dashboard_refresh`))}catch(err){console.error(`Erro ao atualizar carta local:`,err)}let cloudStatus=`local`;if(HS.currentUser&&HS.currentUser.emailVerified&&n){let cIds=Array.isArray(e.customBlendIds)?e.customBlendIds.slice(0,20).map(b=>L9(b,80)).filter(Boolean):[],chaBlends=Array.isArray(e.allBlendIds)&&e.allBlendIds.length>0?e.allBlendIds.slice(0,20).map(b=>L9(b,80)).filter(Boolean):cIds,uName=L9(e.name,140,`Carta Personalizada`),uVenue=L9(e.establishmentName,150,``),uBiz=L9(e.businessType,80,`Restaurante`),uAud=L9(e.audienceProfile,200,``),uHours=L9(e.operatingHours,120,``),uHigh=L9(e.menuHighlights,500,``),uFmt=L9(e.serviceFormat,160,`Serviço de Salão`),uTitle=L9(e.cartaTitle,160,`Carta de Chás B2B`),uCount=Math.max(1,Math.min(20,Number(e.itemCount)||4));try{let uSnap=await AS(Qg(VS,`users`,n));if(!uSnap.exists()){await MS(Qg(VS,`users`,n),{uid:n,displayName:L9(HS.currentUser.displayName||`Parceiro Talchá`,120,`Parceiro Talchá`),role:HS.currentUser.email===`comercial4@talcha.com.br`?`admin`:`partner`,tier:`prata`,providerId:HS.currentUser.providerData?.[0]?.providerId||`google.com`,createdAt:E_(),updatedAt:E_()})}}catch{}let uPath=`users/${n}/cartas/${r}`;try{let ucRef=Qg(VS,`users`,n,`cartas`,r),ucSnap=await AS(ucRef);if(ucSnap.exists()){await NS(ucRef,{name:uName,establishmentName:uVenue,businessType:uBiz,audienceProfile:uAud,operatingHours:uHours,menuHighlights:uHigh,serviceFormat:uFmt,cartaTitle:uTitle,itemCount:uCount,customBlendIds:cIds,updatedAt:E_()})}else{await MS(ucRef,{id:r,uid:n,ownerId:n,name:uName,establishmentName:uVenue,businessType:uBiz,audienceProfile:uAud,operatingHours:uHours,menuHighlights:uHigh,serviceFormat:uFmt,cartaTitle:uTitle,itemCount:uCount,customBlendIds:cIds,createdAt:E_(),updatedAt:E_()})}}catch(err){try{JS(err,qS.UPDATE,uPath)}catch{}}let chaPath=`cartas_cha/${r}`;try{let cRef=Qg(VS,`cartas_cha`,r),cSnap=await AS(cRef),isAdmin=HS.currentUser.email===`comercial4@talcha.com.br`;if(cSnap.exists()){let cd=cSnap.data()||{};if(cd.statusProposta!==`aprovada`||isAdmin){await NS(cRef,{nome:uName,estabelecimento:uVenue,segmento:uBiz,formatoServico:uFmt,itensCount:uCount,blends:chaBlends,observacoes:uHigh,updatedAt:E_()});cloudStatus=`updated`}else{cloudStatus=`aprovada_locked_local_only`}}else{await MS(cRef,{id:r,uid:n,ownerId:n,nome:uName,estabelecimento:uVenue,segmento:uBiz,formatoServico:uFmt,itensCount:uCount,blends:chaBlends,statusProposta:`pendente`,observacoes:uHigh,createdAt:E_(),updatedAt:E_()});cloudStatus=`updated`}}catch(err){try{JS(err,qS.UPDATE,chaPath)}catch{}}HS.currentUser.getIdToken().then(tok=>eC(`/api/cartas`,{method:`POST`,headers:{"Content-Type":`application/json`,Authorization:`Bearer ${tok}`},body:JSON.stringify(updated)})).catch(()=>{});try{window.dispatchEvent(new Event(`talcha_dashboard_refresh`))}catch{}}return{item:updated,cloudStatus}},delete(e){';
+  if (!code.includes(targetZ9SaveEnd)) throw new Error('Could not find targetZ9SaveEnd');
+  code = code.replace(targetZ9SaveEnd, () => replaceZ9SaveEnd);
+
   const targetCartaCloudDel = 'PS(Qg(VS,`users`,n,`cartas`,r)).catch(t=>{try{JS(t,qS.DELETE,e)}catch{}})';
-  const replaceCartaCloudDel = 'PS(Qg(VS,`users`,n,`cartas`,r)).then(()=>{try{window.dispatchEvent(new Event(`talcha_dashboard_refresh`))}catch{}}).catch(t=>{try{JS(t,qS.DELETE,e)}catch{}})';
+  const replaceCartaCloudDel = 'PS(Qg(VS,`users`,n,`cartas`,r)).then(()=>{try{PS(Qg(VS,`cartas_cha`,r)).catch(()=>{});window.dispatchEvent(new Event(`talcha_dashboard_refresh`))}catch{}}).catch(t=>{try{JS(t,qS.DELETE,e)}catch{}})';
   if (!code.includes(targetCartaCloudDel)) throw new Error('Could not find targetCartaCloudDel');
   code = code.replace(targetCartaCloudDel, replaceCartaCloudDel);
+
+  const targetJfeConfigStart = '(0,Z.jsxs)(`div`,{id:`tour-step-config`,className:`bg-white dark:bg-[#1A1815]';
+  const replaceJfeConfigStart =
+    '(0,Z.jsx)(TalchaCuratorEditBanner,{editingCarta:editingCarta,saving:savingCuratorEdit,onSaveEdits:async()=>{if(!editingCarta||savingCuratorEdit)return;setSavingCuratorEdit(!0);try{let payload={name:editingCarta.name||c.trim()||`Carta ${u}`,establishmentName:c.trim()||void 0,businessType:u,audienceProfile:f,operatingHours:g,menuHighlights:m,serviceFormat:v,itemCount:Me.length,cartaTitle:je.title,customBlendIds:de.map(e=>e.blend.id),allBlendIds:Me.map(e=>e.blend.id),removedBlendIds:le,replacedBlendMap:Object.fromEntries(Object.entries(R).map(([e,t])=>[e,t.id]))};let res=await z9.update(editingCarta.id,payload);we(z9.getAll().length);setEditingCarta(prev=>prev?{...prev,name:res.item.name}:prev);Q.success();Oe(res.cloudStatus===`aprovada_locked_local_only`?r(`Alterações salvas na cópia pessoal (proposta aprovada permanece protegida em cartas_cha).`,`Saved to personal menu copy (approved proposal stays locked).`,`Cambios guardados en copia personal.`):r(`Carta "${res.item.name}" atualizada com sucesso no Firestore!`,`"${res.item.name}" updated in Firestore!`,`¡Carta "${res.item.name}" actualizada en Firestore!`))}catch(err){console.error(err);Oe(r(`Erro ao atualizar carta no Firestore.`,`Failed to update menu in Firestore.`,`Error al actualizar carta.`))}finally{setSavingCuratorEdit(!1)}},onOpenSaveModal:()=>xe(!0),onDiscard:()=>setEditingCarta(null),localize:r}),(0,Z.jsxs)(`div`,{id:`tour-step-config`,className:`bg-white dark:bg-[#1A1815]';
+  if (!code.includes(targetJfeConfigStart)) throw new Error('Could not find targetJfeConfigStart');
+  code = code.replace(targetJfeConfigStart, replaceJfeConfigStart);
+
+  const targetEfeDef = 'Efe=({isOpen:e,onClose:t,currentCartaData:n,onLoadCarta:r,onNewBlankCarta:i})=>{let{language:a,localize:o}=SC(),[s,c]=(0,w.useState)(`list`),[l,u]=(0,w.useState)(()=>{let e=n.establishmentName?.trim();return e?`Carta de Chás - ${e}`:`Carta ${n.businessType} · ${new Date().toLocaleDateString(a===`en`?`en-US`:a===`es`?`es-ES`:`pt-BR`)}`}),[d,f]=(0,w.useState)(()=>z9.getAll()),[p,m]=(0,w.useState)(null),[h,g]=(0,w.useState)(null);if(!e)return null;let _=e=>{if(e.preventDefault(),!l.trim())return;let t=z9.save({name:l.trim(),establishmentName:n.establishmentName?.trim()||void 0,businessType:n.businessType,audienceProfile:n.audienceProfile,operatingHours:n.operatingHours,menuHighlights:n.menuHighlights,serviceFormat:n.serviceFormat,itemCount:n.itemCount,cartaTitle:n.cartaTitle,customBlendIds:n.customBlendIds,removedBlendIds:n.removedBlendIds,replacedBlendMap:n.replacedBlendMap}),r=z9.getAll();f(r),c(`list`),m(o(`"${t.name}" salva com sucesso!`,`"${t.name}" saved successfully!`,`¡"${t.name}" guardada con éxito!`)),setTimeout(()=>m(null),4e3)}';
+  const replaceEfeDef = 'Efe=({isOpen:e,onClose:t,currentCartaData:n,editingCarta:editMeta,onLoadCarta:r,onNewBlankCarta:i})=>{let{language:a,localize:o}=SC(),[s,c]=(0,w.useState)(`list`),[l,u]=(0,w.useState)(()=>{if(editMeta?.name)return editMeta.name;let e=n.establishmentName?.trim();return e?`Carta de Chás - ${e}`:`Carta ${n.businessType} · ${new Date().toLocaleDateString(a===`en`?`en-US`:a===`es`?`es-ES`:`pt-BR`)}`}),[d,f]=(0,w.useState)(()=>z9.getAll()),[p,m]=(0,w.useState)(null),[h,g]=(0,w.useState)(null);(0,w.useEffect)(()=>{if(e){f(z9.getAll());if(editMeta?.name)u(editMeta.name)}},[e,editMeta?.id]);if(!e)return null;let _=async e=>{if(e.preventDefault(),!l.trim())return;let payload={name:l.trim(),establishmentName:n.establishmentName?.trim()||void 0,businessType:n.businessType,audienceProfile:n.audienceProfile,operatingHours:n.operatingHours,menuHighlights:n.menuHighlights,serviceFormat:n.serviceFormat,itemCount:n.itemCount,cartaTitle:n.cartaTitle,customBlendIds:n.customBlendIds,allBlendIds:n.allBlendIds,removedBlendIds:n.removedBlendIds,replacedBlendMap:n.replacedBlendMap};if(editMeta?.id&&!editMeta.saveAsNew){let upd=await z9.update(editMeta.id,payload);f(z9.getAll()),c(`list`),m(o(`"${upd.item.name}" atualizada no Firestore!`,`"${upd.item.name}" updated in Firestore!`,`¡"${upd.item.name}" actualizada en Firestore!`)),setTimeout(()=>m(null),4e3);return}let t=z9.save(payload),r=z9.getAll();f(r),c(`list`),m(o(`"${t.name}" salva com sucesso!`,`"${t.name}" saved successfully!`,`¡"${t.name}" guardada con éxito!`)),setTimeout(()=>m(null),4e3)}';
+  if (!code.includes(targetEfeDef)) throw new Error('Could not find targetEfeDef');
+  code = code.replace(targetEfeDef, () => replaceEfeDef);
+
+  const targetEfeMount = 'customBlendIds:de.map(e=>e.blend.id),removedBlendIds:le,replacedBlendMap:Object.fromEntries(Object.entries(R).map(([e,t])=>[e,t.id]))},onLoadCarta:ke,onNewBlankCarta:Ae})';
+  const replaceEfeMount = 'customBlendIds:de.map(e=>e.blend.id),allBlendIds:Me.map(e=>e.blend.id),removedBlendIds:le,replacedBlendMap:Object.fromEntries(Object.entries(R).map(([e,t])=>[e,t.id]))},editingCarta:editingCarta,onLoadCarta:talchaApplyCarta,onNewBlankCarta:Ae})';
+  if (!code.includes(targetEfeMount)) throw new Error('Could not find targetEfeMount');
+  code = code.replace(targetEfeMount, () => replaceEfeMount);
 
   // Upgrade Gfe with Dashboard do Estabelecimento primary workspace + Sales/ESG Analytics & Admin CRM tabs
   const targetGfeSig = 'Gfe=({onOpenLeadModal:e,onOpenPushModal:t})=>{';
@@ -827,7 +959,7 @@ function TalchaExperiencesStrip({onNavigate}){
 
   const targetGfeRetStart = 'return(0,Z.jsxs)(`div`,{className:`max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 animate-in fade-in duration-300`,children:[(0,Z.jsx)(Hfe,{}),';
   const replaceGfeRetStart =
-    'return(0,Z.jsxs)(`div`,{className:`max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 animate-in fade-in duration-300`,children:[(0,Z.jsxs)(`div`,{className:`flex flex-wrap items-center justify-between gap-3 mb-6 pb-4 border-b border-[#E5DACB] dark:border-[#352C23]`,children:[(0,Z.jsxs)(`div`,{className:`inline-flex flex-wrap items-center gap-1 p-1 rounded-xl bg-white dark:bg-[#1A1613] border border-[#E5DACB] dark:border-[#352C23]`,children:[(0,Z.jsx)(`button`,{type:`button`,onClick:()=>setDashWorkspace(`estabelecimento`),className:`px-3.5 py-2 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${dashWorkspace===`estabelecimento`?`bg-[#8B2635] text-white`:`text-[#5C564D] dark:text-[#C2B8AA] hover:text-[#1E1B18] dark:hover:text-white`}`,children:r(`Dashboard do Estabelecimento · Cartas & Propostas`,`Establishment Dashboard · Menus & Proposals`,`Panel del Establecimiento · Cartas y Propuestas`)}),(0,Z.jsx)(`button`,{type:`button`,onClick:()=>setDashWorkspace(`analytics`),className:`px-3.5 py-2 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${dashWorkspace===`analytics`?`bg-[#8B2635] text-white`:`text-[#5C564D] dark:text-[#C2B8AA] hover:text-[#1E1B18] dark:hover:text-white`}`,children:r(`Analytics de Vendas & ESG`,`Sales & ESG Analytics`,`Analítica de Ventas & ESG`)}),dashAuthUser?.role===`admin`&&(0,Z.jsx)(`button`,{type:`button`,onClick:()=>setDashWorkspace(`admin`),className:`px-3.5 py-2 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${dashWorkspace===`admin`?`bg-[#8B2635] text-white`:`text-[#5C564D] dark:text-[#C2B8AA] hover:text-[#1E1B18] dark:hover:text-white`}`,children:r(`Governança & CRM (Admin)`,`Governance & CRM (Admin)`,`Gobernanza y CRM`)})]})]}),dashWorkspace===`estabelecimento`&&(0,Z.jsx)(DashboardEstabelecimento,{variant:`full`,onOpenCarta:c=>{if(c)globalThis.__TALCHA_PENDING_CARTA_LOAD__=c;navCarta?.()},onOpenLeadModal:e}),dashWorkspace===`admin`&&dashAuthUser?.role===`admin`&&(0,Z.jsx)(Hfe,{}),dashWorkspace===`analytics`&&(0,Z.jsxs)(Z.Fragment,{children:[';
+    'return(0,Z.jsxs)(`div`,{className:`max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 animate-in fade-in duration-300`,children:[(0,Z.jsxs)(`div`,{className:`flex flex-wrap items-center justify-between gap-3 mb-6 pb-4 border-b border-[#E5DACB] dark:border-[#352C23]`,children:[(0,Z.jsxs)(`div`,{className:`inline-flex flex-wrap items-center gap-1 p-1 rounded-xl bg-white dark:bg-[#1A1613] border border-[#E5DACB] dark:border-[#352C23]`,children:[(0,Z.jsx)(`button`,{type:`button`,onClick:()=>setDashWorkspace(`estabelecimento`),className:`px-3.5 py-2 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${dashWorkspace===`estabelecimento`?`bg-[#8B2635] text-white`:`text-[#5C564D] dark:text-[#C2B8AA] hover:text-[#1E1B18] dark:hover:text-white`}`,children:r(`Dashboard do Estabelecimento · Cartas & Propostas`,`Establishment Dashboard · Menus & Proposals`,`Panel del Establecimiento · Cartas y Propuestas`)}),(0,Z.jsx)(`button`,{type:`button`,onClick:()=>setDashWorkspace(`analytics`),className:`px-3.5 py-2 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${dashWorkspace===`analytics`?`bg-[#8B2635] text-white`:`text-[#5C564D] dark:text-[#C2B8AA] hover:text-[#1E1B18] dark:hover:text-white`}`,children:r(`Analytics de Vendas & ESG`,`Sales & ESG Analytics`,`Analítica de Ventas & ESG`)}),dashAuthUser?.role===`admin`&&(0,Z.jsx)(`button`,{type:`button`,onClick:()=>setDashWorkspace(`admin`),className:`px-3.5 py-2 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${dashWorkspace===`admin`?`bg-[#8B2635] text-white`:`text-[#5C564D] dark:text-[#C2B8AA] hover:text-[#1E1B18] dark:hover:text-white`}`,children:r(`Governança & CRM (Admin)`,`Governance & CRM (Admin)`,`Gobernanza y CRM`)})]})]}),dashWorkspace===`estabelecimento`&&(0,Z.jsx)(DashboardEstabelecimento,{variant:`full`,onOpenCarta:c=>{if(c){globalThis.__TALCHA_PENDING_CARTA_LOAD__=c;try{window.dispatchEvent(new CustomEvent(`talcha_load_carta`,{detail:c}))}catch{}}navCarta?.()},onOpenLeadModal:e}),dashWorkspace===`admin`&&dashAuthUser?.role===`admin`&&(0,Z.jsx)(Hfe,{}),dashWorkspace===`analytics`&&(0,Z.jsxs)(Z.Fragment,{children:[';
   if (!code.includes(targetGfeRetStart)) throw new Error('Could not find targetGfeRetStart');
   code = code.replace(targetGfeRetStart, replaceGfeRetStart);
 

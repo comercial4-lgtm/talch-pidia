@@ -451,33 +451,35 @@ export default function TalchaInteractiveHeader({
                 );
               })}
 
-              {primaryItems.slice(4, 5).map((item) => {
-                const Icon = item.icon;
-                const active = currentMode === item.id;
-                return (
-                  <button
-                    key={item.id}
-                    type="button"
-                    onClick={() => handleNavigate(item.id)}
-                    id={`nav-${item.id}`}
-                    title={item.label}
-                    className={`flex relative px-2.5 xl:px-3 py-2 text-xs font-medium transition-colors min-h-[40px] items-center gap-1.5 shrink-0 cursor-pointer whitespace-nowrap rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8B2635] ${
-                      active
-                        ? 'text-[#8B2635] dark:text-[#F3D78E] font-semibold bg-[#8B2635]/[0.06] dark:bg-[#F3D78E]/10'
-                        : 'text-[#4F4840] dark:text-[#C4BCB1] hover:text-[#1E1B18] dark:hover:text-white hover:bg-black/[0.03] dark:hover:bg-white/[0.04]'
-                    }`}
-                  >
-                    <Icon className={`w-3.5 h-3.5 shrink-0 ${item.iconColor}`} />
-                    <span className="whitespace-nowrap">{item.shortLabel}</span>
-                    {active && (
-                      <span
-                        aria-hidden="true"
-                        className="absolute bottom-0.5 left-2.5 right-2.5 h-[2px] rounded-full bg-[#8B2635] dark:bg-[#F3D78E]"
-                      />
-                    )}
-                  </button>
-                );
-              })}
+              {user &&
+                primaryItems.slice(4, 5).map((item) => {
+                  const Icon = item.icon;
+                  const active = currentMode === item.id;
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => handleNavigate(item.id)}
+                      id={`nav-${item.id}`}
+                      title={item.label}
+                      className={`flex relative px-2.5 xl:px-3 py-2 text-xs font-medium transition-colors min-h-[40px] items-center gap-1.5 shrink-0 cursor-pointer whitespace-nowrap rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8B2635] ${
+                        active
+                          ? 'text-[#8B2635] dark:text-[#F3D78E] font-semibold bg-[#8B2635]/[0.06] dark:bg-[#F3D78E]/10'
+                          : 'text-[#4F4840] dark:text-[#C4BCB1] hover:text-[#1E1B18] dark:hover:text-white hover:bg-black/[0.03] dark:hover:bg-white/[0.04]'
+                      }`}
+                    >
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#2E6B34] dark:bg-[#6FD47B] shrink-0" />
+                      <Icon className={`w-3.5 h-3.5 shrink-0 ${item.iconColor}`} />
+                      <span className="whitespace-nowrap">{item.shortLabel}</span>
+                      {active && (
+                        <span
+                          aria-hidden="true"
+                          className="absolute bottom-0.5 left-2.5 right-2.5 h-[2px] rounded-full bg-[#8B2635] dark:bg-[#F3D78E]"
+                        />
+                      )}
+                    </button>
+                  );
+                })}
 
               {/* Interactive Mega-Menu Trigger */}
               <div className="relative" ref={megaRef}>

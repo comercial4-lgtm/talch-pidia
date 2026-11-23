@@ -5,7 +5,7 @@
 // 3. Network-First with Timeout Fallback: App Shell Navigation
 // 4. Offline Resilience (2G/3G/Airplane Mode) + Push Notifications B2B
 
-const CACHE_VERSION = 'v37';
+const CACHE_VERSION = 'v45';
 const STATIC_CACHE_NAME = `talchapidia-static-${CACHE_VERSION}`;
 const IMAGE_CACHE_NAME = `talchapidia-images-${CACHE_VERSION}`;
 const FONT_CACHE_NAME = `talchapidia-fonts-${CACHE_VERSION}`;
@@ -110,6 +110,23 @@ self.addEventListener('fetch', (event) => {
 
   // Exclude non-http protocols (e.g. chrome-extension://, blob://)
   if (!url.protocol.startsWith('http')) {
+    return;
+  }
+
+  // Never intercept Firebase, Firestore, Google Auth, Google APIs, Maps, or backend /api/ calls
+  if (
+    url.pathname.startsWith('/api/') ||
+    url.pathname.startsWith('/__/') ||
+    url.hostname.includes('firestore.googleapis.com') ||
+    url.hostname.includes('identitytoolkit.googleapis.com') ||
+    url.hostname.includes('securetoken.googleapis.com') ||
+    url.hostname.includes('firebase') ||
+    url.hostname.includes('accounts.google.com') ||
+    url.hostname.includes('apis.google.com') ||
+    url.hostname.includes('maps.googleapis.com') ||
+    (url.hostname.includes('googleapis.com') && url.origin !== 'https://fonts.googleapis.com') ||
+    (url.hostname.includes('gstatic.com') && url.origin !== 'https://fonts.gstatic.com')
+  ) {
     return;
   }
 
@@ -272,18 +289,19 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // 2C: Static Bundles, Vite Modules & Manifest (Network-First with Offline Cache Fallback)
+  // 2C: Same-Origin Static Bundles, Vite Modules & Manifest (Network-First with Offline Cache Fallback)
   const isStaticBundle =
-    request.destination === 'script' ||
-    request.destination === 'style' ||
-    url.pathname.startsWith('/src/') ||
-    url.pathname.startsWith('/assets/') ||
-    url.pathname.endsWith('.js') ||
-    url.pathname.endsWith('.ts') ||
-    url.pathname.endsWith('.tsx') ||
-    url.pathname.endsWith('.css') ||
-    url.pathname === '/manifest.json' ||
-    url.pathname === '/icon.svg';
+    url.origin === self.location.origin &&
+    (request.destination === 'script' ||
+      request.destination === 'style' ||
+      url.pathname.startsWith('/src/') ||
+      url.pathname.startsWith('/assets/') ||
+      url.pathname.endsWith('.js') ||
+      url.pathname.endsWith('.ts') ||
+      url.pathname.endsWith('.tsx') ||
+      url.pathname.endsWith('.css') ||
+      url.pathname === '/manifest.json' ||
+      url.pathname === '/icon.svg');
 
   if (isStaticBundle) {
     event.respondWith(
@@ -349,8 +367,12 @@ self.addEventListener('fetch', (event) => {
   }
 
   // --------------------------------------------------------------------------
-  // Default Strategy: Network with Cache Fallback
+  // Default Strategy: Only handle same-origin GET requests; bypass cross-origin
   // --------------------------------------------------------------------------
+  if (url.origin !== self.location.origin) {
+    return;
+  }
+
   event.respondWith(
     (async () => {
       try {

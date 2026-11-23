@@ -69,6 +69,48 @@ function talchaDrawClientCrest(doc, clientLogo, x, y, w, h, darkHeader, borderCo
   } catch {}
 }
 
+function talchaDrawOfficialWatermark(doc, isDarkTheme = false) {
+  try {
+    const pageWidth = doc.internal?.pageSize?.getWidth?.() || 210;
+    const pageHeight = doc.internal?.pageSize?.getHeight?.() || 297;
+    const hasGState =
+      typeof doc.GState === 'function' && typeof doc.setGState === 'function';
+
+    if (typeof doc.saveGraphicsState === 'function') {
+      doc.saveGraphicsState();
+    }
+    if (hasGState) {
+      doc.setGState(new doc.GState({ opacity: isDarkTheme ? 0.08 : 0.055 }));
+      if (isDarkTheme) {
+        doc.setTextColor(212, 172, 126);
+      } else {
+        doc.setTextColor(139, 38, 53);
+      }
+    } else {
+      doc.setTextColor(isDarkTheme ? 58 : 232, isDarkTheme ? 50 : 224, isDarkTheme ? 42 : 214);
+    }
+
+    doc.setFont('times', 'bold');
+    doc.setFontSize(22);
+
+    const stepX = 76;
+    const stepY = 58;
+    for (let row = 0, wy = 24; wy < pageHeight + 25; row += 1, wy += stepY) {
+      const xShift = row % 2 === 0 ? 0 : stepX * 0.5;
+      for (let wx = -15 + xShift; wx < pageWidth + 30; wx += stepX) {
+        doc.text('Talchá B2B Oficial', wx, wy, {
+          angle: 35,
+          align: 'center',
+        });
+      }
+    }
+
+    if (typeof doc.restoreGraphicsState === 'function') {
+      doc.restoreGraphicsState();
+    }
+  } catch {}
+}
+
 function talchaDrawEditorialBanner(doc, options = {}) {
   const {
     subtitle = 'CHÁS ESPECIAIS & ALTA GASTRONOMIA',
@@ -696,6 +738,8 @@ function j9(e) {
       doc.setFont('helvetica', 'bold');
       doc.setTextColor(wine.r, wine.g, wine.b);
       doc.text(`${m.page} ${pg} ${m.of} ${finalCount}`, 196, 289, { align: 'right' });
+
+      talchaDrawOfficialWatermark(doc, false);
     }
   };
 
